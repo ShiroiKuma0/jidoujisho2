@@ -43,7 +43,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "app.arianneorpilla.yuuna"
+        applicationId "shiroikuma.jidoujishodainihan"
         minSdkVersion 24
         targetSdkVersion 32
         versionCode flutterVersionCode.toInteger()
