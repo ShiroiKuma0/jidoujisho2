@@ -429,5 +429,17 @@
     "video_unavailable": "Video Unavailable",
     "video_unavailable_content": "Cannot fetch streams. There may be restrictions in place that prevent watching this video.",
     "video_file_error": "Cannot Load File",
-    "video_file_error_content": "Unable to load the video file. Please ensure this file exists and is located in a directory accessible by the application."
+    "video_file_error_content": "Unable to load the video file. Please ensure this file exists and is located in a directory accessible by the application.",
+    "seek_control": "Seek Control",
+    "player_option_volume_brightness": "Change Volume & Brightness",
+    "player_option_volume_down": "Volume Down",
+    "player_option_volume_up": "Volume Up",
+    "player_option_brightness_down": "Brightness Down",
+    "player_option_brightness_up": "Brightness Up",
+    "player_option_pin_bottom_bar": "Toggle to Pin Player Bottom Bar",
+    "player_option_fullscreen_mode": "Toggle to Set FullScreen Mode",
+    "player_option_font_color": "Subtitle font color",
+    "player_option_font_weight": "Subtitle font weight",
+    "player_option_outline_color": "Subtitle outline color",
+    "pick_color": "Pick Color"
   }

@@ -180,7 +180,6 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
         break;
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
-      case AppLifecycleState.hidden:
         _lifecycleActive = false;
         if (!appModel.playerBackgroundPlay) {
           _session.setActive(false);

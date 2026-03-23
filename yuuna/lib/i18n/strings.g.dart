@@ -1,9 +1,9 @@
 /// Generated file. Do not edit.
 ///
 /// Locales: 1
-/// Strings: 397
+/// Strings: 409
 ///
-/// Built on 2023-09-30 at 09:59 UTC
+/// Built on 2026-03-23 at 18:35 UTC
 
 // coverage:ignore-file
 // ignore_for_file: type=lint
@@ -541,6 +541,18 @@ class _StringsEn implements BaseTranslations<AppLocale, _StringsEn> {
 	String get video_unavailable_content => 'Cannot fetch streams. There may be restrictions in place that prevent watching this video.';
 	String get video_file_error => 'Cannot Load File';
 	String get video_file_error_content => 'Unable to load the video file. Please ensure this file exists and is located in a directory accessible by the application.';
+	String get seek_control => 'Seek Control';
+	String get player_option_volume_brightness => 'Change Volume & Brightness';
+	String get player_option_volume_down => 'Volume Down';
+	String get player_option_volume_up => 'Volume Up';
+	String get player_option_brightness_down => 'Brightness Down';
+	String get player_option_brightness_up => 'Brightness Up';
+	String get player_option_pin_bottom_bar => 'Toggle to Pin Player Bottom Bar';
+	String get player_option_fullscreen_mode => 'Toggle to Set FullScreen Mode';
+	String get player_option_font_color => 'Subtitle font color';
+	String get player_option_font_weight => 'Subtitle font weight';
+	String get player_option_outline_color => 'Subtitle outline color';
+	String get pick_color => 'Pick Color';
 }
 
 // Path: retrying_in
@@ -976,6 +988,18 @@ extension on _StringsEn {
 			case 'video_unavailable_content': return 'Cannot fetch streams. There may be restrictions in place that prevent watching this video.';
 			case 'video_file_error': return 'Cannot Load File';
 			case 'video_file_error_content': return 'Unable to load the video file. Please ensure this file exists and is located in a directory accessible by the application.';
+			case 'seek_control': return 'Seek Control';
+			case 'player_option_volume_brightness': return 'Change Volume & Brightness';
+			case 'player_option_volume_down': return 'Volume Down';
+			case 'player_option_volume_up': return 'Volume Up';
+			case 'player_option_brightness_down': return 'Brightness Down';
+			case 'player_option_brightness_up': return 'Brightness Up';
+			case 'player_option_pin_bottom_bar': return 'Toggle to Pin Player Bottom Bar';
+			case 'player_option_fullscreen_mode': return 'Toggle to Set FullScreen Mode';
+			case 'player_option_font_color': return 'Subtitle font color';
+			case 'player_option_font_weight': return 'Subtitle font weight';
+			case 'player_option_outline_color': return 'Subtitle outline color';
+			case 'pick_color': return 'Pick Color';
 			default: return null;
 		}
 	}
