@@ -103,7 +103,7 @@ packages:
       path: "."
       ref: fb26dd1fa81edeb048b14703f1c1f28e93ee43d0
       resolved-ref: fb26dd1fa81edeb048b14703f1c1f28e93ee43d0
-      url: "https://github.com/lrorpilla/blurry_container/"
+      url: "https://github.com/arianneorpilla/blurry_container/"
     source: git
     version: "0.0.2"
   boolean_selector:
@@ -302,10 +302,10 @@ packages:
     dependency: "direct main"
     description:
       name: collection
-      sha256: "4a07be6cb69c84d677a6c3096fcf960cc3285a8330b4603e0d463d15d9bd934c"
+      sha256: f092b211a4319e98e5ff58223576de6c2803db36221657b46c82574721240687
       url: "https://pub.dev"
     source: hosted
-    version: "1.17.1"
+    version: "1.17.2"
   colorize:
     dependency: transitive
     description:
@@ -520,7 +520,7 @@ packages:
       path: package
       ref: jidoujisho
       resolved-ref: aedba6189cd6e995c1ff0f8451d1d5e31c2ce7c1
-      url: "https://github.com/lrorpilla/filesystem_picker"
+      url: "https://github.com/arianneorpilla/filesystem_picker"
     source: git
     version: "2.0.0-nullsafety.0"
   fixnum:
@@ -670,7 +670,7 @@ packages:
       path: "."
       ref: ffd182431017ec919ece3f80bf5e22a9286189af
       resolved-ref: ffd182431017ec919ece3f80bf5e22a9286189af
-      url: "https://github.com/lrorpilla/flutter_inappwebview"
+      url: "https://github.com/arianneorpilla/flutter_inappwebview"
     source: git
     version: "6.0.0-beta.25"
   flutter_inappwebview_internal_annotations:
@@ -767,7 +767,7 @@ packages:
       path: flutter_vlc_player
       ref: "013632b4cc591c68ced04ccc0244c2770daca633"
       resolved-ref: "013632b4cc591c68ced04ccc0244c2770daca633"
-      url: "https://github.com/lrorpilla/flutter_vlc_player"
+      url: "https://github.com/arianneorpilla/flutter_vlc_player"
     source: git
     version: "7.2.0"
   flutter_vlc_player_platform_interface:
@@ -1123,17 +1123,17 @@ packages:
     dependency: transitive
     description:
       name: material_color_utilities
-      sha256: d92141dc6fe1dad30722f9aa826c7fbc896d021d792f80678280601aff8cf724
+      sha256: "9528f2f296073ff54cb9fee677df673ace1218163c3bc7628093e7eed5203d41"
       url: "https://pub.dev"
     source: hosted
-    version: "0.2.0"
+    version: "0.5.0"
   material_floating_search_bar:
     dependency: "direct main"
     description:
       path: "."
       ref: jidoujisho
       resolved-ref: "450750544f09582cf18728f31988e38d2e0716ce"
-      url: "https://github.com/lrorpilla/material_floating_search_bar"
+      url: "https://github.com/arianneorpilla/material_floating_search_bar"
     source: git
     version: "0.3.7"
   mecab_dart:
@@ -1182,7 +1182,7 @@ packages:
       path: "."
       ref: "290ee1097d67cafc50f3aba1ba5bba01e758d877"
       resolved-ref: "290ee1097d67cafc50f3aba1ba5bba01e758d877"
-      url: "https://github.com/lrorpilla/nowplaying"
+      url: "https://github.com/arianneorpilla/nowplaying"
     source: git
     version: "2.0.6"
   octo_image:
@@ -1439,17 +1439,17 @@ packages:
       path: "."
       ref: "3854d07f8f4e9d5a78589639b18b5d454ddf54a0"
       resolved-ref: "3854d07f8f4e9d5a78589639b18b5d454ddf54a0"
-      url: "https://github.com/lrorpilla/receive_intent"
+      url: "https://github.com/arianneorpilla/receive_intent"
     source: git
     version: "0.2.3"
-  record_mp3:
-    dependency: "direct main"
+  record_mp3_plus:
+    dependency: "direct overridden"
     description:
-      name: record_mp3
-      sha256: dd3d221d223f4a38816835e7a887a401a808c583d11d793ef04a60e4f13e781e
+      name: record_mp3_plus
+      sha256: bf0b3f3ed96227a289ddf71605eb5370e5d43b8a2c17429ec55e60ace03d76e9
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.0"
+    version: "1.2.0"
   remove_emoji:
     dependency: "direct main"
     description:
@@ -1488,7 +1488,7 @@ packages:
       path: "."
       ref: cb723f87c9ac575aa735b40016c0ffb3242d921e
       resolved-ref: cb723f87c9ac575aa735b40016c0ffb3242d921e
-      url: "https://github.com/lrorpilla/RubyText"
+      url: "https://github.com/arianneorpilla/RubyText"
     source: git
     version: "3.0.1"
   rxdart:
@@ -1499,54 +1499,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.27.7"
-  screen_brightness:
-    dependency: "direct main"
-    description:
-      name: screen_brightness
-      sha256: "7d4ac84ae26b37c01d6f5db7123a72db7933e1f2a2a8c369a51e08f81b3178d8"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.1"
-  screen_brightness_android:
-    dependency: transitive
-    description:
-      name: screen_brightness_android
-      sha256: "8c69d3ac475e4d625e7fa682a3a51a69ff59abe5b4a9e57f6ec7d830a6c69bd6"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.1"
-  screen_brightness_ios:
-    dependency: transitive
-    description:
-      name: screen_brightness_ios
-      sha256: f08f70ca1ac3e30719764b5cfb8b3fe1e28163065018a41b3e6f243ab146c2f1
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.1"
-  screen_brightness_macos:
-    dependency: transitive
-    description:
-      name: screen_brightness_macos
-      sha256: "70c2efa4534e22b927e82693488f127dd4a0f008469fccf4f0eefe9061bbdd6a"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.1"
-  screen_brightness_platform_interface:
-    dependency: transitive
-    description:
-      name: screen_brightness_platform_interface
-      sha256: "9f3ebf7f22d5487e7676fe9ddaf3fc55b6ff8057707cf6dc0121c7dfda346a16"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.1"
-  screen_brightness_windows:
-    dependency: transitive
-    description:
-      name: screen_brightness_windows
-      sha256: c8e12a91cf6dd912a48bd41fcf749282a51afa17f536c3460d8d05702fb89ffa
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.1"
   scrollable_positioned_list:
     dependency: "direct main"
     description:
@@ -1686,7 +1638,7 @@ packages:
       path: "."
       ref: master
       resolved-ref: b6a1387abaafd36e94e9290806a00a53ca89683f
-      url: "https://github.com/lrorpilla/spaces"
+      url: "https://github.com/arianneorpilla/spaces"
     source: git
     version: "0.5.0"
   sqflite:
@@ -1751,7 +1703,7 @@ packages:
       path: "."
       ref: "36562dcda59c67c170f6e0a10ad5f775eb3341e3"
       resolved-ref: "36562dcda59c67c170f6e0a10ad5f775eb3341e3"
-      url: "https://github.com/lrorpilla/subtitle"
+      url: "https://github.com/arianneorpilla/subtitle"
     source: git
     version: "0.1.0-beta.2"
   synchronized:
@@ -1920,7 +1872,7 @@ packages:
       path: "."
       ref: c366bb1ae24f6fad4f5c7e3a1efad5f2b8122e58
       resolved-ref: c366bb1ae24f6fad4f5c7e3a1efad5f2b8122e58
-      url: "https://github.com/lrorpilla/ve_dart"
+      url: "https://github.com/arianneorpilla/ve_dart"
     source: git
     version: "0.2.1"
   vector_graphics:
@@ -2013,6 +1965,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.0"
+  web:
+    dependency: transitive
+    description:
+      name: web
+      sha256: dc8ccd225a2005c1be616fe02951e2e342092edf968cf0844220383757ef8f10
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.4-beta"
   web_socket_channel:
     dependency: "direct main"
     description:
@@ -2065,10 +2025,10 @@ packages:
     dependency: "direct main"
     description:
       name: youtube_explode_dart
-      sha256: c5c5a7ddec7d42d341cb8e49d628c4b81618f927bbf81dbfa9c550bee39ef45d
+      sha256: "28dca07fefb4b6518beab95f0c1ef81031f921ed0fe87ebcd9c51378546edfee"
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.1"
+    version: "2.2.3"
 sdks:
-  dart: ">=3.0.0 <4.0.0"
-  flutter: ">=3.10.6"
+  dart: ">=3.1.0-185.0.dev <4.0.0"
+  flutter: ">=3.13.5"

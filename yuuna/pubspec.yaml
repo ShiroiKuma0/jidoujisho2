@@ -1,10 +1,10 @@
 name: yuuna
 description: A full-featured immersion language learning suite for mobile.
 publish_to: 'none'
-version: 2.9.0+104
+version: 2.9.0+115
 environment:
   sdk: ">=3.0.0<4.0.0"
-  flutter: "^3.10.6"
+  flutter: "^3.13.5"
 
 dependencies:
   async_zip: ^0.1.0
@@ -13,7 +13,7 @@ dependencies:
   beautiful_soup_dart: ^0.3.0
   blurrycontainer:
     git:
-      url: https://github.com/lrorpilla/blurry_container/
+      url: https://github.com/arianneorpilla/blurry_container/
       ref: fb26dd1fa81edeb048b14703f1c1f28e93ee43d0
   cached_network_image: ^3.2.3
   cached_network_svg_image: ^0.0.5
@@ -22,7 +22,7 @@ dependencies:
   change_notifier_builder: ^1.1.2
   chat_gpt_sdk: ^2.1.5
   clipboard: ^0.1.3
-  collection: ^1.17.0
+  collection:
   copy_with_extension: ^5.0.2
   crop_image: ^1.0.4
   dart_mappable: ^4.0.0-dev.1
@@ -36,7 +36,7 @@ dependencies:
   file_picker: ^5.3.0
   filesystem_picker:
     git:
-      url: https://github.com/lrorpilla/filesystem_picker
+      url: https://github.com/arianneorpilla/filesystem_picker
       ref: jidoujisho
       path: package
   float_column: ^2.1.1
@@ -54,7 +54,7 @@ dependencies:
   flutter_image_compress: ^1.1.3
   flutter_inappwebview:
     git:
-      url: https://github.com/lrorpilla/flutter_inappwebview
+      url: https://github.com/arianneorpilla/flutter_inappwebview
       ref: ffd182431017ec919ece3f80bf5e22a9286189af
   flutter_launcher_icons: ^0.12.0
   flutter_logs: ^2.1.11 
@@ -63,7 +63,7 @@ dependencies:
   flutter_staggered_grid_view: ^0.6.2
   flutter_vlc_player:
    git:
-      url: https://github.com/lrorpilla/flutter_vlc_player
+      url: https://github.com/arianneorpilla/flutter_vlc_player
       ref: 013632b4cc591c68ced04ccc0244c2770daca633
       path: flutter_vlc_player
   fluttertoast: ^8.2.1
@@ -87,14 +87,14 @@ dependencies:
   marquee: ^2.2.3
   material_floating_search_bar:
     git:
-      url: https://github.com/lrorpilla/material_floating_search_bar
+      url: https://github.com/arianneorpilla/material_floating_search_bar
       ref: jidoujisho
   mecab_dart: ^0.1.3
   multi_value_listenable_builder: ^0.0.2
   network_to_file_image: ^4.0.1
   nowplaying:
     git: 
-      url: https://github.com/lrorpilla/nowplaying
+      url: https://github.com/arianneorpilla/nowplaying
       ref: 290ee1097d67cafc50f3aba1ba5bba01e758d877
   package_info_plus: ^4.0.2
   path: ^1.8.2
@@ -105,15 +105,14 @@ dependencies:
   recase: ^4.1.0
   receive_intent:
     git:
-      url: https://github.com/lrorpilla/receive_intent
+      url: https://github.com/arianneorpilla/receive_intent
       ref: 3854d07f8f4e9d5a78589639b18b5d454ddf54a0
-  record_mp3: ^3.0.0
   remove_emoji: ^0.0.7
   reorderables: ^0.6.0
   restart_app: ^1.1.2
   ruby_text:
     git:
-      url: https://github.com/lrorpilla/RubyText
+      url: https://github.com/arianneorpilla/RubyText
       ref: cb723f87c9ac575aa735b40016c0ffb3242d921e
   screen_brightness: ^1.0.1
   scrollable_positioned_list: ^0.3.5
@@ -123,19 +122,19 @@ dependencies:
   sliver_tools: ^0.2.12
   spaces:
     git:
-      url: https://github.com/lrorpilla/spaces
+      url: https://github.com/arianneorpilla/spaces
       ref: master
   stack_trace: ^1.11.1
   subtitle:
     git:
-      url: https://github.com/lrorpilla/subtitle
+      url: https://github.com/arianneorpilla/subtitle
       ref: 36562dcda59c67c170f6e0a10ad5f775eb3341e3
   transparent_image: ^2.0.1
   uri_to_file: ^0.2.0
   url_launcher: ^6.0.20
   ve_dart:
     git:
-      url: https://github.com/lrorpilla/ve_dart
+      url: https://github.com/arianneorpilla/ve_dart
       ref: c366bb1ae24f6fad4f5c7e3a1efad5f2b8122e58
   visibility_detector: ^0.4.0+2
   wakelock:
@@ -144,13 +143,15 @@ dependencies:
       ref: 40464c75e908f57f458597ef4912f5273ab89b1a
       path: wakelock
   web_socket_channel: ^2.3.0
-  youtube_explode_dart: ^2.0.1
+  youtube_explode_dart: ^2.2.3
   
 dependency_overrides:
+  collection: ^1.17.2
   ffi: ^2.0.0
   freezed_annotation: ^2.2.0 # Caused by spaces
   gap: ^3.0.1 # Caused by spaces
   http: ^1.0.0
+  record_mp3_plus: ^1.2.0
   wakelock_windows:
     git:
       url: https://github.com/diegotori/wakelock

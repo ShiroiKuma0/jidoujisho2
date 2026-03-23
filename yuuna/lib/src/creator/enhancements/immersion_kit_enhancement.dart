@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:yuuna/creator.dart';
 import 'package:yuuna/models.dart';
 import 'package:http/http.dart' as http;
+import 'package:yuuna/src/creator/enhancements/jp_conjugations.dart';
 import 'package:yuuna/utils.dart';
 
 /// An entity used to neatly return and organise results fetched from
@@ -24,6 +25,8 @@ class ImmersionKitResult {
     required this.audioUrl,
     required this.wordList,
     required this.wordIndices,
+    required this.calculateRange,
+    required this.longestExactMatch,
   });
 
   /// The sentence in plain unformatted form.
@@ -44,19 +47,18 @@ class ImmersionKitResult {
   /// Index of the words to highlight.
   List<int> wordIndices;
 
-  /// Get the range for this result for cloze purposes.
-  TextRange get range {
-    if (wordIndices.isEmpty) {
-      return TextRange.empty;
-    } else {
-      int length = wordList[wordIndices.first].length;
-      String beforeFirst = wordList.sublist(0, wordIndices.first).join();
+  TextRange? _calculatedRange;
 
-      return TextRange(
-        start: beforeFirst.length,
-        end: beforeFirst.length + length,
-      );
-    }
+  /// How many consecutive characters match the search term exactly
+  int longestExactMatch;
+
+  /// Function to calculate the range of search term
+  TextRange Function() calculateRange;
+
+  /// Get the range for this result for cloze purposes
+  TextRange get range {
+    _calculatedRange ??= calculateRange();
+    return _calculatedRange!;
   }
 
   /// Get a selection with this result's text and range.
@@ -179,6 +181,85 @@ class ImmersionKitEnhancement extends Enhancement {
     );
   }
 
+  TextRange _getRangeFromIndexedList({
+    required List<int> wordIndices,
+    required List<String> wordList,
+    required String term,
+  }) {
+    if (wordIndices.isEmpty) {
+      return TextRange.empty;
+    } else {
+      String beforeFirst = wordList.sublist(0, wordIndices.first).join();
+
+      bool maybeIchidan = term.endsWith('る');
+      String? godanEnding =
+          godanConjugations.keys.contains(term.characters.last)
+              ? term.characters.last
+              : null;
+
+      var length = wordList[wordIndices.first].length;
+      var index = wordIndices.first + 1;
+      // Keep adding to the cloze, if:
+      // - it is shorter than the term
+      // - it might be a conjugated godan verb (longer than term)
+      //    AND the next word is a valid conjugation for the godan verb
+      // - we are not at the end of the sentence
+      while (
+          // - we are not at the end of the sentence
+          index < wordList.length &&
+              (
+                  // - it is shorter than the term
+                  length < term.length ||
+                      // - it might be a conjugated godan verb (longer than term)
+                      (godanEnding != null &&
+                          length == term.length &&
+                          // AND the next word is a valid conjugation for the godan verb
+                          godanConjugations[godanEnding]!.contains(
+                              wordList[index - 1].characters.last +
+                                  wordList[index])))) {
+        var nextWord = wordList[index];
+
+        // If the term could be an ichidan verb, we are one letter short of the
+        // whole term, and the next word is not a possible conjugation for
+        // ichidan or godan with る, break and return the stem
+        if (maybeIchidan &&
+            length == term.length - 1 &&
+            !ichidanConjugations.contains(nextWord) &&
+            !godanConjugations['る']!.contains(nextWord)) {
+          break;
+        }
+
+        length += nextWord.length;
+        index++;
+      }
+
+      return TextRange(
+        start: beforeFirst.length,
+        end: beforeFirst.length + length,
+      );
+    }
+  }
+
+  int _longestExactRangeForResult({
+    required List<int> wordIndices,
+    required List<String> wordList,
+    required String term,
+    required String text,
+  }) {
+    /// Start at the first character of the given cloze
+    int textPosition = wordList.sublist(0, wordIndices.first).join().length;
+    int termPosition = 0;
+
+    while (textPosition < text.length &&
+        termPosition < term.length &&
+        term[termPosition] == text[textPosition]) {
+      termPosition++;
+      textPosition++;
+    }
+
+    return termPosition;
+  }
+
   /// Search the Massif API for example sentences and return a list of results.
   Future<List<ImmersionKitResult>> searchForSentences({
     required AppModel appModel,
@@ -233,13 +314,23 @@ class ImmersionKitEnhancement extends Enhancement {
         String audioUrl = example['sound_url'];
 
         ImmersionKitResult result = ImmersionKitResult(
-          text: text,
-          source: source,
-          imageUrl: imageUrl,
-          audioUrl: audioUrl,
-          wordList: wordList,
-          wordIndices: wordIndices,
-        );
+            text: text,
+            source: source,
+            imageUrl: imageUrl,
+            audioUrl: audioUrl,
+            wordList: wordList,
+            wordIndices: wordIndices,
+            calculateRange: () => _getRangeFromIndexedList(
+                  wordIndices: wordIndices,
+                  wordList: wordList,
+                  term: searchTerm,
+                ),
+            longestExactMatch: _longestExactRangeForResult(
+              wordIndices: wordIndices,
+              wordList: wordList,
+              text: text,
+              term: searchTerm,
+            ));
 
         /// Sentence examples that are merely the word itself are pretty
         /// redundant.
@@ -251,7 +342,7 @@ class ImmersionKitEnhancement extends Enhancement {
       /// Make sure series aren't too consecutive.
       results.shuffle();
 
-      /// Results with images come first.
+      /// Sort by: has image -> has audio -> longest exact match -> shortest sentence
       results.sort((a, b) {
         int hasImage = (a.imageUrl.isNotEmpty ? -1 : 1)
             .compareTo(b.imageUrl.isNotEmpty ? -1 : 1);
@@ -265,6 +356,13 @@ class ImmersionKitEnhancement extends Enhancement {
 
         if (hasAudio != 0) {
           return hasAudio;
+        }
+
+        /// Sort by longest subterm
+        int longestMatch = b.longestExactMatch.compareTo(a.longestExactMatch);
+
+        if (longestMatch != 0) {
+          return longestMatch;
         }
 
         return a.text.length.compareTo(b.text.length);
