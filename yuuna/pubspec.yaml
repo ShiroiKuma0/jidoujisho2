@@ -1,7 +1,7 @@
 name: yuuna
 description: A full-featured immersion language learning suite for mobile.
 publish_to: 'none'
-version: 2.9.2+201
+version: 2.9.3+202
 environment:
   sdk: ">=3.0.0<4.0.0"
   flutter: "^3.13.5"
@@ -143,10 +143,7 @@ dependencies:
       ref: 40464c75e908f57f458597ef4912f5273ab89b1a
       path: wakelock
   web_socket_channel: ^2.3.0
-  youtube_explode_dart:
-    git:
-      url: https://github.com/Coronon/youtube_explode_dart
-      ref: caa3023386dbc10e69c99f49f491148094874671
+  youtube_explode_dart: ^2.3.9
   
 dependency_overrides:
   collection: ^1.17.2
