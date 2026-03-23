@@ -498,22 +498,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.2"
-  ffmpeg_kit_flutter:
-    dependency: "direct main"
-    description:
-      name: ffmpeg_kit_flutter
-      sha256: b7c874eeffd2c554d636a84a9fbdfe34a99a5862ad636d4779b4b7f56060d728
-      url: "https://pub.dev"
-    source: hosted
-    version: "6.0.3-LTS"
-  ffmpeg_kit_flutter_platform_interface:
-    dependency: transitive
-    description:
-      name: ffmpeg_kit_flutter_platform_interface
-      sha256: addf046ae44e190ad0101b2fde2ad909a3cd08a2a109f6106d2f7048b7abedee
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.2.1"
   file:
     dependency: transitive
     description:
@@ -632,6 +616,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.2"
+  flutter_ffmpeg:
+    dependency: "direct main"
+    description:
+      name: flutter_ffmpeg
+      sha256: "8d8bb4551cf76384748ba6948739c1e56a9164794e48f06cbfb0ff1bfb058b5f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.2"
   flutter_gpt_tokenizer:
     dependency: "direct main"
     description:
@@ -2096,11 +2088,12 @@ packages:
   youtube_explode_dart:
     dependency: "direct main"
     description:
-      name: youtube_explode_dart
-      sha256: f226459955b3de3e4cdd88bb4098dd7fed0261ac3f41485e2b8bbfb2f7c9ddc5
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.3.10"
+      path: "."
+      ref: caa3023386dbc10e69c99f49f491148094874671
+      resolved-ref: caa3023386dbc10e69c99f49f491148094874671
+      url: "https://github.com/Coronon/youtube_explode_dart"
+    source: git
+    version: "2.5.2"
 sdks:
   dart: ">=3.1.0-185.0.dev <4.0.0"
   flutter: ">=3.13.5"

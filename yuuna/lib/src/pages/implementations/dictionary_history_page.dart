@@ -1,4 +1,3 @@
-import 'package:collection/collection.dart';
 import 'package:expandable/expandable.dart';
 import 'package:flutter/material.dart';
 import 'package:spaces/spaces.dart';
@@ -112,7 +111,7 @@ class _DictionaryHistoryScrollableItemState
     );
 
     List<DictionaryHeading> headings =
-        result.headingIds.map((id) => headingsById[id]).whereNotNull().toList();
+        result.headingIds.map((id) => headingsById[id]).nonNulls.toList();
 
     List<Dictionary> dictionaries = appModel.dictionaries;
     Map<String, bool> dictionaryNamesByHidden = Map<String, bool>.fromEntries(

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
@@ -85,6 +84,218 @@ class ImmersionKitEnhancement extends Enhancement {
   /// default mappings value of [AnkiMapping].
   static const String key = 'immersion_kit';
 
+  static const Map<String, List<String>> _caseSensitiveTitles = {
+    'anime': [
+      'Alya Sometimes Hides Her Feelings in Russian',
+      'Angel Beats!',
+      'Anohana the flower we saw that day',
+      'Assassination Classroom Season 1',
+      'Bakemonogatari',
+      'Boku no Hero Academia Season 1',
+      'Bunny Drop',
+      'Cardcaptor Sakura',
+      'Castle in the sky',
+      'Chobits',
+      'Clannad After Story',
+      'Clannad',
+      'Code Geass Season 1',
+      'Daily Lives of High School Boys',
+      'Death Note',
+      'Demon Slayer - Kimetsu no Yaiba',
+      'Durarara!!',
+      'Erased',
+      'Fairy Tail',
+      'Fate Stay Night Unlimited Blade Works',
+      'Fate Zero',
+      'From Up on Poppy Hill',
+      'From the New World',
+      'Fruits Basket Season 1',
+      'Fullmetal Alchemist Brotherhood',
+      'Girls Band Cry',
+      'God\'s Blessing on this Wonderful World!',
+      'Grave of the Fireflies',
+      'Haruhi Suzumiya',
+      'Howl\'s Moving Castle',
+      'Hunter × Hunter',
+      'Hyouka',
+      'Is The Order a Rabbit',
+      'K-On!',
+      'Kakegurui',
+      'Kanon (2006)',
+      'Kiki\'s Delivery Service',
+      'Kill la Kill',
+      'Kino\'s Journey',
+      'Kokoro Connect',
+      'Little Witch Academia',
+      'Lucky Star',
+      'Mahou Shoujo Madoka Magica',
+      'Mononoke',
+      'My Little Sister Can\'t Be This Cute',
+      'My Neighbor Totoro',
+      'New Game!',
+      'Nisekoi',
+      'No Game No Life',
+      'Noragami',
+      'One Week Friends',
+      'Only Yesterday',
+      'Princess Mononoke',
+      'Psycho Pass',
+      'Re Zero − Starting Life in Another World',
+      'ReLIFE',
+      'Shirokuma Cafe',
+      'Sound! Euphonium',
+      'Spirited Away',
+      'Steins Gate',
+      'Sword Art Online',
+      'The Cat Returns',
+      'The Garden of Words',
+      'The Girl Who Leapt Through Time',
+      'The Pet Girl of Sakurasou',
+      'The Secret World of Arrietty',
+      'The Wind Rises',
+      'The World God Only Knows',
+      'Toradora!',
+      'Wandering Witch The Journey of Elaina',
+      'Weathering with You',
+      'When Marnie Was There',
+      'Whisper of the Heart',
+      'Wolf Children',
+      'Your Lie in April',
+      'Your Name',
+    ],
+    'drama': [
+      '1 Litre of Tears',
+      'Border',
+      'Good Morning Call',
+      'I am Mita, Your Housekeeper',
+      'I\'m Taking the Day Off',
+      'Legal High Season 1',
+      'Million Yen Woman',
+      'Mob Psycho 100',
+      'Overprotected Kahoko',
+      'Quartet',
+      'Sailor Suit and Machine Gun (2006)',
+      'Smoking',
+      'The Journalist',
+      'Weakest Beast',
+    ],
+    'games': [
+      'Cyberpunk 2077',
+      'Skyrim',
+      'Witcher 3',
+    ],
+    'literature': [
+      '黒猫',
+      'おおかみと七ひきのこどもやぎ',
+      'マッチ売りの少女',
+      'サンタクロースがやってきた',
+      '君死にたまふことなかれ',
+      '蝉',
+      '胡瓜',
+      '若鮎について',
+      '黒足袋',
+      '柿',
+      'お母さんの思ひ出',
+      '砂をかむ',
+      '虻のおれい',
+      'がちゃがちゃ',
+      '犬のいたずら',
+      '犬と人形',
+      '懐中時計',
+      'きのこ会議',
+      'お金とピストル',
+      '梅のにおい',
+      '純真',
+      '声と人柄',
+      '心の調べ',
+      '愛',
+      '期待と切望',
+      '空の美',
+      'いちょうの実',
+      '虔十公園林',
+      'クねずみ',
+      'おきなぐさ',
+      'さるのこしかけ',
+      'セロ弾きのゴーシュ',
+      'ざしき童子のはなし',
+      '秋の歌',
+      '赤い船とつばめ',
+      '赤い蝋燭と人魚',
+      '赤い魚と子供',
+      '秋が　きました',
+      '青いボタン',
+      'ある夜の星たちの話',
+      'いろいろな花',
+      'からすとかがし',
+      '片田舎にあった話',
+      '金魚売り',
+      '小鳥と兄妹',
+      'おじいさんが捨てたら',
+      'おかめどんぐり',
+      'お母さん',
+      'お母さんのお乳',
+      'おっぱい',
+      '少年と秋の日',
+      '金のくびかざり',
+      '愛よ愛',
+      '気の毒な奥様',
+      '新茶',
+      '初夏に座す',
+      '三角と四角',
+      '赤い蝋燭',
+      '赤とんぼ',
+      '飴だま',
+      'あし',
+      'がちょうのたんじょうび',
+      'ごん狐',
+      '蟹のしょうばい',
+      'カタツムリノ ウタ',
+      '木の祭り',
+      'こぞうさんのおきょう',
+      '去年の木',
+      'おじいさんのランプ',
+      '王さまと靴屋',
+      '落とした一銭銅貨',
+      'サルト サムライ',
+      '里の春、山の春',
+      'ウサギ 新美 南吉',
+      'あひるさん と 時計',
+      '川へおちた玉ねぎさん',
+      '小ぐまさんのかんがへちがひ',
+      'お鍋とお皿とカーテン',
+      'お鍋とおやかんとフライパンのけんくわ',
+      'ひらめの学校',
+      '狐物語',
+      '桜の樹の下には',
+      '瓜子姫子',
+      'ああしんど',
+      '葬式の行列',
+      '風',
+      '子どものすきな神さま',
+      '喫茶店にて',
+      '子供に化けた狐',
+      '顔',
+      '四季とその折々',
+    ],
+    'news': [
+      '平成30年阿蘇神社で甘酒の仕込み始まる',
+      'フレッシュマン！5月号阿蘇広域行政事務組合',
+      'フレッシュマン！7月号春工房、そば処ゆう雀',
+      'フレッシュマン！11月号内牧保育園',
+      '山田小学校で最後の稲刈り',
+    ],
+  };
+
+  static final Map<String, Map<String, String>> _normalizedTitleLookup = {
+    for (var category in _caseSensitiveTitles.keys) 
+      category: {
+        for (var title in _caseSensitiveTitles[category]!) 
+          _normalize(title): title
+      }
+  };
+
+  static String _normalize(String s) => s.toLowerCase().replaceAll(RegExp('[^a-z0-9]'), '');
+
   /// Used to store results that have already been found at runtime.
   final Map<String, List<ImmersionKitResult>> _immersionKitCache = {};
 
@@ -124,6 +335,8 @@ class ImmersionKitEnhancement extends Enhancement {
           return;
         }
 
+        final originalSelection = List<ImmersionKitResult>.from(selection);
+
         ImmersionKitResult firstResult = selection.removeAt(0);
         creatorModel.setSentenceAndCloze(firstResult.selection);
         creatorModel.getFieldController(ContextField.instance).text =
@@ -132,42 +345,15 @@ class ImmersionKitEnhancement extends Enhancement {
           creatorModel.appendSentenceAndCloze(result.text);
         }
 
-        if (firstResult.imageUrl.isNotEmpty) {
-          await ImageField.instance.setImages(
-            cause: cause,
-            appModel: appModel,
-            creatorModel: creatorModel,
-            newAutoCannotOverride: false,
-            generateImages: () async {
-              String imagePath = '${directory.path}/image';
-              File imageFile = File(imagePath);
-              File networkFile = await DefaultCacheManager()
-                  .getSingleFile(firstResult.imageUrl);
-              networkFile.copySync(imageFile.path);
-
-              return [NetworkToFileImage(file: imageFile)];
-            },
-          );
-        }
-
-        if (firstResult.audioUrl.isNotEmpty) {
-          await AudioSentenceField.instance.setAudio(
-            appModel: appModel,
-            creatorModel: creatorModel,
-            searchTerm: searchTerm,
-            newAutoCannotOverride: false,
-            cause: cause,
-            generateAudio: () async {
-              String audioPath = '${directory.path}/audio.mp3';
-              File audioFile = File(audioPath);
-              File networkFile = await DefaultCacheManager()
-                  .getSingleFile(firstResult.audioUrl);
-              networkFile.copySync(audioFile.path);
-
-              return audioFile;
-            },
-          );
-        }
+        await _handleMedia(
+          selection: originalSelection,
+          cause: cause,
+          appModel: appModel,
+          creatorModel: creatorModel,
+          directory: directory,
+          searchTerm: searchTerm,
+          isAppending: false,
+        );
       },
       onAppend: (selection) async {
         if (selection.isEmpty) {
@@ -177,8 +363,91 @@ class ImmersionKitEnhancement extends Enhancement {
         for (ImmersionKitResult result in selection) {
           creatorModel.appendSentenceAndCloze(result.text);
         }
+
+        await _handleMedia(
+          selection: selection,
+          cause: cause,
+          appModel: appModel,
+          creatorModel: creatorModel,
+          directory: directory,
+          searchTerm: searchTerm,
+          isAppending: true,
+        );
       },
     );
+  }
+
+  /// Handles downloading and setting/appending images and audio for a
+  /// list of selected ImmersionKit results.
+  Future<void> _handleMedia({
+    required List<ImmersionKitResult> selection,
+    required EnhancementTriggerCause cause,
+    required AppModel appModel,
+    required CreatorModel creatorModel,
+    required Directory directory,
+    required String searchTerm,
+    required bool isAppending,
+  }) async {
+
+    final bool shouldSetImages =
+        !isAppending || creatorModel.getFieldController(ImageField.instance).text.isEmpty;
+
+    if (shouldSetImages) {
+      final imageUrls = selection
+          .map((r) => r.imageUrl)
+          .where((url) => url.isNotEmpty)
+          .toList();
+
+      if (imageUrls.isNotEmpty) {
+        await ImageField.instance.setImages(
+          cause: cause,
+          appModel: appModel,
+          creatorModel: creatorModel,
+          newAutoCannotOverride: false,
+          generateImages: () async {
+            final images = <NetworkToFileImage>[];
+            for (var i = 0; i < imageUrls.length; i++) {
+              final imagePath = isAppending
+                  ? '${directory.path}/image_append_$i'
+                  : '${directory.path}/image_$i';
+              final imageFile = File(imagePath);
+              final networkFile =
+                  await DefaultCacheManager().getSingleFile(imageUrls[i]);
+              await networkFile.copy(imageFile.path);
+              images.add(NetworkToFileImage(file: imageFile));
+            }
+            return images;
+          },
+        );
+      }
+    }
+
+    final bool shouldSetAudio = !isAppending ||
+        creatorModel.getFieldController(AudioSentenceField.instance).text.isEmpty;
+
+    if (shouldSetAudio) {
+      final firstAudioUrl = selection
+          .map((r) => r.audioUrl)
+          .firstWhere((url) => url.isNotEmpty, orElse: () => '');
+
+      if (firstAudioUrl.isNotEmpty) {
+        await AudioSentenceField.instance.setAudio(
+          appModel: appModel,
+          creatorModel: creatorModel,
+          searchTerm: searchTerm,
+          newAutoCannotOverride: false,
+          cause: cause,
+          generateAudio: () async {
+            final audioPath = isAppending ? '${directory.path}/audio_append.mp3' : '${directory.path}/audio.mp3';
+            final audioFile = File(audioPath);
+            final networkFile =
+                await DefaultCacheManager().getSingleFile(firstAudioUrl);
+            await networkFile.copy(audioFile.path);
+            return audioFile;
+          },
+        );
+      }
+    }
   }
 
   TextRange _getRangeFromIndexedList({
@@ -246,6 +515,10 @@ class ImmersionKitEnhancement extends Enhancement {
     required String term,
     required String text,
   }) {
+    if (wordIndices.isEmpty) {
+      return 0;
+    }
+
     /// Start at the first character of the given cloze
     int textPosition = wordList.sublist(0, wordIndices.first).join().length;
     int termPosition = 0;
@@ -260,7 +533,7 @@ class ImmersionKitEnhancement extends Enhancement {
     return termPosition;
   }
 
-  /// Search the Massif API for example sentences and return a list of results.
+  /// Search the ImmersionKit v2 API for example sentences and return a list of results.
   Future<List<ImmersionKitResult>> searchForSentences({
     required AppModel appModel,
     required String searchTerm,
@@ -275,43 +548,73 @@ class ImmersionKitEnhancement extends Enhancement {
 
     List<ImmersionKitResult> results = [];
 
-    late http.Response response;
-
     try {
-      /// Query the ImmersionKit API for results.
-      response = await _client.get(Uri.parse(
-          'https://api.immersionkit.com/look_up_dictionary?keyword=${Uri.encodeComponent(searchTerm)}&sort=shortness&min_length=${max(searchTerm.length, 10)}'));
+      /// Query the ImmersionKit API v2 for results.
+      final response = await _client.get(Uri.parse(
+          'https://apiv2.immersionkit.com/search?q=${Uri.encodeComponent(searchTerm)}&exactMatch=true'));
+
+      if (response.statusCode != 200) {
+        // Don't throw, just report and return empty.
+        appModel.showFailedToCommunicateMessage();
+        return [];
+      }
 
       Map<String, dynamic> json = jsonDecode(utf8.decode(response.bodyBytes));
 
-      /// For each response, create a [ImmersionKitResult] that can be used to display
-      /// the widget as well as hold the sentence and source data.
-      List<Map<String, dynamic>> dataResponse =
-          List<Map<String, dynamic>>.from(json['data']);
-
-      Map<String, dynamic> firstHit = dataResponse.first;
-
       List<Map<String, dynamic>> examples =
-          List<Map<String, dynamic>>.from(firstHit['examples']);
-
-      if (examples.isEmpty) {
-        response = await _client.get(Uri.parse(
-            'https://api.immersionkit.com/look_up_dictionary?keyword=${Uri.encodeComponent(searchTerm)}'));
-        json = jsonDecode(utf8.decode(response.bodyBytes));
-        dataResponse = List<Map<String, dynamic>>.from(json['data']);
-        firstHit = dataResponse.first;
-        examples = List<Map<String, dynamic>>.from(firstHit['examples']);
-      }
+          List<Map<String, dynamic>>.from(json['examples'] ?? []);
 
       for (Map<String, dynamic> example in examples) {
-        String source = example['deck_name'];
-        String text = example['sentence'];
+        String source = example['title'] ?? '';
+        String text = example['sentence'] ?? '';
+        if (text.isEmpty) {
+          continue;
+        }
 
-        List<String> wordList = List<String>.from(example['word_list']);
-        List<int> wordIndices = List<int>.from(example['word_index']);
+        List<String> wordList = List<String>.from(example['word_list'] ?? []);
+        List<int> wordIndices = [];
 
-        String imageUrl = example['image_url'];
-        String audioUrl = example['sound_url'];
+        // Manually find the index of the first word of the search term
+        int termStartIndex = text.indexOf(searchTerm);
+        if (termStartIndex != -1) {
+          int currentPos = 0;
+          for (int i = 0; i < wordList.length; i++) {
+            String word = wordList[i];
+            if (currentPos <= termStartIndex &&
+                termStartIndex < currentPos + word.length) {
+              wordIndices.add(i);
+              break;
+            }
+            currentPos += word.length;
+          }
+        }
+
+        String id = example['id'] ?? '';
+        List<String> idParts = id.split('_');
+        String category = idParts.isNotEmpty ? idParts.first : '';
+
+        final normalizedApiTitle = _normalize(source);
+        final correctTitle = _normalizedTitleLookup[category]?[normalizedApiTitle];
+
+        String imageUrl = '';
+        String imageFilename = example['image'] ?? '';
+        if (category.isNotEmpty &&
+            correctTitle != null &&
+            imageFilename.isNotEmpty) {
+          final encodedTitle = Uri.encodeComponent(correctTitle);
+          imageUrl =
+              'https://us-southeast-1.linodeobjects.com/immersionkit/media/$category/$encodedTitle/media/$imageFilename';
+        }
+
+        String audioUrl = '';
+        String soundFilename = example['sound'] ?? '';
+        if (category.isNotEmpty &&
+            correctTitle != null &&
+            soundFilename.isNotEmpty) {
+          final encodedTitle = Uri.encodeComponent(correctTitle);
+          audioUrl =
+              'https://us-southeast-1.linodeobjects.com/immersionkit/media/$category/$encodedTitle/media/$soundFilename';
+        }
 
         ImmersionKitResult result = ImmersionKitResult(
             text: text,
@@ -375,10 +678,7 @@ class ImmersionKitEnhancement extends Enhancement {
     } catch (e) {
       /// Used to log if this third-party service is down or changes domains.
       appModel.showFailedToCommunicateMessage();
-
-      throw Exception(
-        'Failed to communicate with ImmersionKit: ${response.reasonPhrase}',
-      );
+      return [];
     }
   }
 }

@@ -34,7 +34,7 @@
 ---
 
 <p align="center" style="margin:0"><b>‍🧪 Latest Release:
-  <a href="https://github.com/arianneorpilla/jidoujisho/releases/tag/2.9.0-preview3">2.9.0-preview3</a>
+  <a href="https://github.com/arianneorpilla/jidoujisho/releases/tag/2.9.0-preview4">2.9.0-preview4</a>
 </b></p>
 
 <b>
@@ -216,10 +216,10 @@ A primer on the basics of the application is as follows.
         </a>
     </td>
     <td align="center">
-        <a href="https://github.com/chrispavlopoulos">
-            <img src="https://avatars.githubusercontent.com/u/21095600?v=4" width="100;" alt="chrispavlopoulos"/>
+        <a href="https://github.com/chrispavs">
+            <img src="https://avatars.githubusercontent.com/u/21095600?v=4" width="100;" alt="chrispavs"/>
             <br />
-            <sub><b>chrispavlopoulos</b></sub>
+            <sub><b>chrispavs</b></sub>
         </a>
     </td>
     <td align="center">
@@ -249,6 +249,13 @@ A primer on the basics of the application is as follows.
             <img src="https://avatars.githubusercontent.com/u/17340496?v=4" width="100;" alt="MarvNC"/>
             <br />
             <sub><b>MarvNC</b></sub>
+        </a>
+    </td>
+    <td align="center">
+        <a href="https://github.com/TheAtlasRises">
+            <img src="https://avatars.githubusercontent.com/u/106642434?v=4" width="100;" alt="TheAtlasRises"/>
+            <br />
+            <sub><b>TheAtlasRises</b></sub>
         </a>
     </td></tr>
 </table>

@@ -44,6 +44,12 @@ class _JidoujishoDropdownState<T> extends State<JidoujishoDropdown<T>> {
 
   @override
   Widget build(BuildContext context) {
+    final uniqueOptions = widget.options.toSet();
+    T? dropdownValue = selectedOption;
+    if (!uniqueOptions.contains(dropdownValue)) {
+      dropdownValue = uniqueOptions.isNotEmpty ? uniqueOptions.first : null;
+    }
+
     return Column(
       children: [
         DropdownButton<T>(
@@ -59,8 +65,8 @@ class _JidoujishoDropdownState<T> extends State<JidoujishoDropdown<T>> {
             ),
           ),
           focusColor: Theme.of(context).listTileTheme.selectedTileColor,
-          value: selectedOption,
-          items: widget.options.map((value) {
+          value: dropdownValue,
+          items: uniqueOptions.map((value) {
             String text = widget.generateLabel(value);
             return DropdownMenuItem<T>(
               value: value,
