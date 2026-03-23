@@ -295,7 +295,7 @@ class PlayerLocalMediaSource extends PlayerMediaSource {
     required MediaItem item,
   }) async {
     int startTime = item.position;
-    if (item.duration - item.position < 60) {
+    if (item.duration - item.position < 10) {
       startTime = 0;
     }
 

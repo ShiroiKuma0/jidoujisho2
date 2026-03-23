@@ -284,7 +284,7 @@ class _HomePageState extends BasePageState<HomePage>
 
   void browseToGithub() async {
     launchUrl(
-      Uri.parse('https://github.com/arianneorpilla/jidoujisho'),
+      Uri.parse('https://github.com/ShiroiKuma0/jidoujisho2'),
       mode: LaunchMode.externalApplication,
     );
   }

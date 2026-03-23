@@ -1,3 +1,4 @@
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
@@ -12,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_vlc_player/flutter_vlc_player.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 // import 'package:google_fonts/google_fonts.dart';
 import 'package:multi_value_listenable_builder/multi_value_listenable_builder.dart';
 import 'package:path_provider/path_provider.dart';
@@ -458,6 +460,7 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
         return;
       }
 
+
       initialiseEmbeddedSubtitles(_playerController);
 
       Future.delayed(const Duration(seconds: 5), () {
@@ -537,6 +540,7 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
     });
     loadSavedFont();
     setScreenMode();
+    applyDictionaryFontColor();
 
     _playerController.addListener(listener);
 
@@ -802,6 +806,17 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
       },
     );
 
+    // Restore saved secondary subtitle after all subtitles are loaded
+    if (widget.item != null) {
+      int savedSecondaryIndex = appModel.getSecondarySubtitleIndex(widget.item!);
+      if (savedSecondaryIndex >= 0 && savedSecondaryIndex < _subtitleItems.length) {
+        _secondarySubtitleItem = _subtitleItems[savedSecondaryIndex];
+        if (!_secondarySubtitleItem.controller.initialized) {
+          _secondarySubtitleItem.controller.initial();
+        }
+      }
+    }
+
     appModel.isProcessingEmbeddedSubtitles = false;
   }
 
@@ -986,6 +1001,12 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
       onTap: () {
         if (!_playerBasicOptionsNotifier.value.keepSysNavbarShown) {
           SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        }
+
+        if (currentResult != null) {
+          _selectableTextController.clearSelection();
+          clearDictionaryResult();
+          return;
         }
 
         toggleMenuVisibility();
@@ -1955,6 +1976,50 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
         },
       ),
       JidoujishoBottomSheetOption(
+        label: t.player_option_dictionary_font_color,
+        icon: Icons.format_color_text,
+        action: () async {
+          bool shouldResume = !_dialogSmartPaused;
+          await dialogSmartPause();
+          if (context.mounted) {
+            Color newColor = Color(appModel.dictionaryFontColor);
+            await showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                content: SingleChildScrollView(
+                  child: ColorPicker(
+                    pickerColor: Color(appModel.dictionaryFontColor),
+                    paletteType: PaletteType.hueWheel,
+                    onColorChanged: (value) {
+                      newColor = value;
+                    },
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    child: Text(t.dialog_save),
+                    onPressed: () {
+                      appModel.setDictionaryFontColor(newColor.value);
+                      applyDictionaryFontColor();
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                  TextButton(
+                    child: Text(t.dialog_cancel),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ],
+              ),
+            );
+          }
+          if (shouldResume) {
+            await dialogSmartResume();
+          }
+        },
+      ),
+      JidoujishoBottomSheetOption(
         label: t.player_option_blur_preferences,
         icon: Icons.blur_circular_sharp,
         action: () async {
@@ -2168,6 +2233,9 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
             _secondarySubtitleItem.controller.initial();
           }
           _currentSecondarySubtitle.value = null;
+          if (widget.item != null) {
+            appModel.setSecondarySubtitleIndex(widget.item!, _subtitleItems.indexOf(item));
+          }
         },
       );
 
@@ -2183,6 +2251,9 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
         action: () {
           _secondarySubtitleItem = _emptySubtitleItem;
           _currentSecondarySubtitle.value = null;
+          if (widget.item != null) {
+            appModel.setSecondarySubtitleIndex(widget.item!, -1);
+          }
         },
       ),
     );
@@ -2935,6 +3006,19 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
 
   /// This makes the subtitle widget force to reflect a change, for example
   /// in settings and reflect that in its appearance.
+  void applyDictionaryFontColor() {
+    int fontColor = appModel.dictionaryFontColor;
+    ThemeData currentTheme = Theme.of(context);
+    appModel.setOverrideDictionaryTheme(
+      currentTheme.copyWith(
+        textTheme: currentTheme.textTheme.apply(
+          bodyColor: Color(fontColor),
+          displayColor: Color(fontColor),
+        ),
+      ),
+    );
+  }
+
   void refreshSubtitleWidget() {
     Subtitle? holder = _currentSubtitle.value;
     _currentSubtitle.value = null;

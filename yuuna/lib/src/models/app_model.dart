@@ -1055,7 +1055,7 @@ class AppModel with ChangeNotifier {
     List<BrowserBookmark> defaultBookmarks = [
       BrowserBookmark(
           name: 'jidoujisho',
-          url: 'https://github.com/arianneorpilla/jidoujisho'),
+          url: 'https://github.com/ShiroiKuma0/jidoujisho2'),
       BrowserBookmark(name: 'Google', url: 'https://google.com/'),
       BrowserBookmark(name: 'DuckDuckGo', url: 'https://duckduckgo.com/'),
       BrowserBookmark(name: 'Wikipedia', url: 'https://wikipedia.org/'),
@@ -3354,6 +3354,26 @@ class AppModel with ChangeNotifier {
     _preferences.put('secondary_subtitle_outline_color', options.subtitleOutlineColor);
     _preferences.put('secondary_subtitle_background_blur_radius',
         options.subtitleBackgroundBlurRadius);
+  }
+
+  /// Get the dictionary font color used in the player.
+  int get dictionaryFontColor {
+    return _preferences.get('dictionary_font_color', defaultValue: 0xffffffff);
+  }
+
+  /// Set the dictionary font color used in the player.
+  void setDictionaryFontColor(int color) {
+    _preferences.put('dictionary_font_color', color);
+  }
+
+  /// Get the saved secondary subtitle index for a media item.
+  int getSecondarySubtitleIndex(MediaItem item) {
+    return _preferences.get('secondary_subtitle_index/${item.uniqueKey}', defaultValue: -1);
+  }
+
+  /// Set the saved secondary subtitle index for a media item.
+  void setSecondarySubtitleIndex(MediaItem item, int index) {
+    _preferences.put('secondary_subtitle_index/${item.uniqueKey}', index);
   }
 
   /// Get the bottom bar options used in the player.

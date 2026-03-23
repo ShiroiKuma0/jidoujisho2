@@ -347,7 +347,7 @@ class PlayerYoutubeSource extends PlayerMediaSource {
     String audioUrl = await getAudioUrl(item, dataSource);
 
     int startTime = item.position;
-    if (item.duration - item.position < 60) {
+    if (item.duration - item.position < 10) {
       startTime = 0;
     }
 
