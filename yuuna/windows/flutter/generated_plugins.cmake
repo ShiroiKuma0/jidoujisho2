@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   isar_flutter_libs
   permission_handler_windows
+  screen_brightness_windows
   url_launcher_windows
 )
 
