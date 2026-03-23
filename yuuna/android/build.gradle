@@ -4,23 +4,20 @@ buildscript {
         google()
         mavenCentral()
     }
-
     dependencies {
         classpath 'com.android.tools.build:gradle:7.1.2'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
-
 allprojects {
     repositories {
         google()
         mavenCentral()
         maven { url "https://jitpack.io" }
         maven { url "$rootDir/local-repo" }
-	maven { url "https://maven.aliyun.com/repository/jcenter" }
+        maven { url "https://maven.aliyun.com/repository/jcenter" }
     }
 }
-
 rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
@@ -28,11 +25,9 @@ subprojects {
 subprojects {
     project.evaluationDependsOn(':app')
 }
-
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
-
 ext {
     flutterFFmpegPackage = "full-gpl-lts"
 }
