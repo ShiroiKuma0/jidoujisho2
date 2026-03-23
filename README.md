@@ -4,8 +4,8 @@
 <h3 align="center">jidoujisho</h3>
 <p align="center">A full-featured immersion language learning suite for mobile.</p>
 <p align="center">
-  <a href="https://github.com/arianneorpilla/jidoujisho/releases/tag/2.8.9">
-    <img src="https://img.shields.io/github/v/release/arianneorpilla/jidoujisho" alt="latest release" />
+  <a href="https://github.com/arianneorpilla/jidoujisho/releases/tag/2.9.0-preview3">
+    <img src="https://img.shields.io/github/v/release/arianneorpilla/jidoujisho?include_prereleases" alt="latest release" />
   </a>
   <a href="https://github.com/arianneorpilla/jidoujisho/commits/main">
     <img src="https://img.shields.io/github/last-commit/arianneorpilla/jidoujisho" alt="latest commit" />
@@ -33,12 +33,8 @@
 
 ---
 
-<p align="center" style="margin:0"><b>‍🧪 Preview Release:
-  <a href="https://github.com/arianneorpilla/jidoujisho/releases/tag/2.9.0-preview2">2.9.0-preview2</a>
-</b></p>
-
-<p align="center" style="margin:0"><b>✨ Latest Release:
-  <a href="https://github.com/arianneorpilla/jidoujisho/releases/tag/2.8.9">2.8.9</a>
+<p align="center" style="margin:0"><b>‍🧪 Latest Release:
+  <a href="https://github.com/arianneorpilla/jidoujisho/releases/tag/2.9.0-preview3">2.9.0-preview3</a>
 </b></p>
 
 <b>
@@ -220,6 +216,13 @@ A primer on the basics of the application is as follows.
         </a>
     </td>
     <td align="center">
+        <a href="https://github.com/chrispavlopoulos">
+            <img src="https://avatars.githubusercontent.com/u/21095600?v=4" width="100;" alt="chrispavlopoulos"/>
+            <br />
+            <sub><b>chrispavlopoulos</b></sub>
+        </a>
+    </td>
+    <td align="center">
         <a href="https://github.com/Aegyo">
             <img src="https://avatars.githubusercontent.com/u/4183969?v=4" width="100;" alt="Aegyo"/>
             <br />
@@ -239,7 +242,8 @@ A primer on the basics of the application is as follows.
             <br />
             <sub><b>Natsume-197</b></sub>
         </a>
-    </td>
+    </td></tr>
+<tr>
     <td align="center">
         <a href="https://github.com/MarvNC">
             <img src="https://avatars.githubusercontent.com/u/17340496?v=4" width="100;" alt="MarvNC"/>
