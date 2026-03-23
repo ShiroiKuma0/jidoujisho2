@@ -26,7 +26,7 @@ apply plugin: 'kotlin-android'
 apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
 android {
-    compileSdkVersion 33
+    compileSdkVersion 34
     ndkVersion '21.4.7075529'
 
     compileOptions {
@@ -118,4 +118,5 @@ flutter {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     implementation 'com.github.ankidroid:Anki-Android:api-v1.1.0'
+    implementation 'com.github.umair13adil:RxLogs:v1.0.18'
 }
