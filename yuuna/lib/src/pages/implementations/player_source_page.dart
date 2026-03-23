@@ -179,6 +179,7 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
         }
         break;
       case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
       case AppLifecycleState.detached:
         _lifecycleActive = false;
         if (!appModel.playerBackgroundPlay) {
