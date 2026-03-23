@@ -628,6 +628,11 @@ class AppModel with ChangeNotifier {
     return _currentSubtitleOptions;
   }
 
+  ValueNotifier<SecondarySubtitleOptions>? get currentSecondarySubtitleOptions {
+    _currentSecondarySubtitleOptions ??= ValueNotifier<SecondarySubtitleOptions>(secondarySubtitleOptions);
+    return _currentSecondarySubtitleOptions;
+  }
+
   /// Current player bottom bar options.
   ValueNotifier<PlayerBasicOptions>? get currentPlayerBasicOptions {
     _currentPlayerBasicOptions ??=
@@ -636,6 +641,7 @@ class AppModel with ChangeNotifier {
   }
 
   ValueNotifier<SubtitleOptions>? _currentSubtitleOptions;
+  ValueNotifier<SecondarySubtitleOptions>? _currentSecondarySubtitleOptions;
   ValueNotifier<PlayerBasicOptions>? _currentPlayerBasicOptions;
 
   /// Override color for the dictionary widget.
@@ -3305,6 +3311,49 @@ class AppModel with ChangeNotifier {
     _preferences.put('subtitle_background_blur_radius',
         options.subtitleBackgroundBlurRadius);
     _preferences.put('subtitle_above_bar', options.alwaysAboveBottomBar);
+  }
+
+  /// Get the secondary subtitle options used in the player.
+  SecondarySubtitleOptions get secondarySubtitleOptions {
+    double fontSize = _preferences.get('secondary_font_size', defaultValue: 20.0);
+    String fontName = _preferences
+        .get('secondary_font_name/${targetLanguage.languageCode}', defaultValue: '');
+    int fontColor = _preferences.get('secondary_font_color', defaultValue: 0xffffff00);
+    String fontWeight = _preferences.get('secondary_font_weight', defaultValue: 'Normal');
+    double subtitleOutlineWidth =
+        _preferences.get('secondary_subtitle_outline_width', defaultValue: 1.0);
+    int subtitleOutlineColor =
+        _preferences.get('secondary_subtitle_outline_color', defaultValue: 0xffffffff);
+    double subtitleBackgroundBlurRadius =
+        _preferences.get('secondary_subtitle_background_blur_radius', defaultValue: 0.0);
+    double subtitleBackgroundOpacity =
+        _preferences.get('secondary_subtitle_background_opacity', defaultValue: 0.0);
+
+    return SecondarySubtitleOptions(
+      fontSize: fontSize,
+      fontName: fontName,
+      fontColor: fontColor,
+      fontWeight: fontWeight,
+      subtitleOutlineWidth: subtitleOutlineWidth,
+      subtitleOutlineColor: subtitleOutlineColor,
+      subtitleBackgroundBlurRadius: subtitleBackgroundBlurRadius,
+      subtitleBackgroundOpacity: subtitleBackgroundOpacity,
+    );
+  }
+
+  /// Set the secondary subtitle options used in the player.
+  void setSecondarySubtitleOptions(SecondarySubtitleOptions options) {
+    _preferences.put('secondary_font_size', options.fontSize);
+    _preferences.put('secondary_font_color', options.fontColor);
+    _preferences.put('secondary_font_weight', options.fontWeight);
+    _preferences.put(
+        'secondary_font_name/${targetLanguage.languageCode}', options.fontName);
+    _preferences.put(
+        'secondary_subtitle_background_opacity', options.subtitleBackgroundOpacity);
+    _preferences.put('secondary_subtitle_outline_width', options.subtitleOutlineWidth);
+    _preferences.put('secondary_subtitle_outline_color', options.subtitleOutlineColor);
+    _preferences.put('secondary_subtitle_background_blur_radius',
+        options.subtitleBackgroundBlurRadius);
   }
 
   /// Get the bottom bar options used in the player.

@@ -84,6 +84,7 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
 
   late final ValueNotifier<BlurOptions> _blurOptionsNotifier;
   late final ValueNotifier<SubtitleOptions> _subtitleOptionsNotifier;
+  late final ValueNotifier<SecondarySubtitleOptions> _secondarySubtitleOptionsNotifier;
   late final ValueNotifier<PlayerBasicOptions> _playerBasicOptionsNotifier;
 
   StreamSubscription<void>? _playPauseSubscription;
@@ -399,6 +400,7 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
     appModel.currentPlayerController = _playerController;
     _currentSubtitle = appModel.currentSubtitle;
     _subtitleOptionsNotifier = appModel.currentSubtitleOptions!;
+    _secondarySubtitleOptionsNotifier = appModel.currentSecondarySubtitleOptions!;
     _playerBasicOptionsNotifier = appModel.currentPlayerBasicOptions!;
     _isMenuShownPermanent.value = _playerBasicOptionsNotifier.value.keepShown;
     _isMenuHidden.value = !_isMenuShownPermanent.value;
@@ -1933,6 +1935,26 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
         },
       ),
       JidoujishoBottomSheetOption(
+        label: t.player_option_secondary_subtitle_appearance,
+        icon: Icons.text_fields_outlined,
+        action: () async {
+          bool shouldResume = !_dialogSmartPaused;
+          await dialogSmartPause();
+          if (context.mounted) {
+            await showDialog(
+              context: context,
+              builder: (context) => SecondarySubtitleOptionsDialogPage(
+                notifier: _secondarySubtitleOptionsNotifier,
+              ),
+            );
+          }
+
+          if (shouldResume) {
+            await dialogSmartResume();
+          }
+        },
+      ),
+      JidoujishoBottomSheetOption(
         label: t.player_option_blur_preferences,
         icon: Icons.blur_circular_sharp,
         action: () async {
@@ -2560,13 +2582,13 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
         }
 
         double blurRadius =
-            _subtitleOptionsNotifier.value.subtitleBackgroundBlurRadius;
+            _secondarySubtitleOptionsNotifier.value.subtitleBackgroundBlurRadius;
         return ClipRRect(
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: blurRadius, sigmaY: blurRadius),
             child: Container(
               color: Colors.black.withOpacity(
-                _subtitleOptionsNotifier.value.subtitleBackgroundOpacity,
+                _secondarySubtitleOptionsNotifier.value.subtitleBackgroundOpacity,
               ),
               padding: EdgeInsets.only(
                 top: Spacing.of(context).spaces.small * 0.6,
@@ -2579,12 +2601,12 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
                   Text(
                     subtitleText,
                     textAlign: TextAlign.center,
-                    style: subtitleOutlineStyle,
+                    style: secondarySubtitleOutlineStyle,
                   ),
                   Text(
                     subtitleText,
                     textAlign: TextAlign.center,
-                    style: subtitleTextStyle,
+                    style: secondarySubtitleTextStyle,
                   ),
                 ],
               ),
@@ -2782,6 +2804,39 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
                 ? FontWeight.normal
                 : FontWeight.bold,
         color: Color(_subtitleOptionsNotifier.value.fontColor),
+      );
+
+  /// Secondary subtitle paint style.
+  Paint get secondarySubtitlePaintStyle => Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = _secondarySubtitleOptionsNotifier.value.subtitleOutlineWidth
+    ..color = Color(_secondarySubtitleOptionsNotifier.value.subtitleOutlineColor)
+        .withOpacity(_secondarySubtitleOptionsNotifier.value.subtitleOutlineWidth == 0
+            ? 0
+            : 0.75);
+
+  /// Secondary subtitle outline text style.
+  TextStyle get secondarySubtitleOutlineStyle => TextStyle(
+        fontFamily: _secondarySubtitleOptionsNotifier.value.fontName,
+        fontSize: _secondarySubtitleOptionsNotifier.value.fontSize,
+        fontWeight: _secondarySubtitleOptionsNotifier.value.fontWeight == 'Thin'
+            ? FontWeight.w300
+            : _secondarySubtitleOptionsNotifier.value.fontWeight == 'Normal'
+                ? FontWeight.normal
+                : FontWeight.bold,
+        foreground: secondarySubtitlePaintStyle,
+      );
+
+  /// Secondary subtitle text style.
+  TextStyle get secondarySubtitleTextStyle => TextStyle(
+        fontFamily: _secondarySubtitleOptionsNotifier.value.fontName,
+        fontSize: _secondarySubtitleOptionsNotifier.value.fontSize,
+        fontWeight: _secondarySubtitleOptionsNotifier.value.fontWeight == 'Thin'
+            ? FontWeight.w100
+            : _secondarySubtitleOptionsNotifier.value.fontWeight == 'Normal'
+                ? FontWeight.normal
+                : FontWeight.bold,
+        color: Color(_secondarySubtitleOptionsNotifier.value.fontColor),
       );
 
   /// This is used to set the search term upon pressing on a character

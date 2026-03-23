@@ -1,9 +1,9 @@
 /// Generated file. Do not edit.
 ///
 /// Locales: 1
-/// Strings: 410
+/// Strings: 411
 ///
-/// Built on 2026-03-23 at 20:34 UTC
+/// Built on 2026-03-23 at 21:20 UTC
 
 // coverage:ignore-file
 // ignore_for_file: type=lint
@@ -364,6 +364,7 @@ class _StringsEn implements BaseTranslations<AppLocale, _StringsEn> {
 	String get player_option_subtitle_none => 'None';
 	String get player_option_select_subtitle => 'Select Subtitle Track';
 	String get player_option_select_secondary_subtitle => 'Select Secondary Subtitle Track';
+	String get player_option_secondary_subtitle_appearance => 'Secondary Subtitle Appearance';
 	String get player_option_select_audio => 'Select Audio Track';
 	String get player_option_text_filter => 'Use Regular Expression Filter';
 	String get player_option_blur_preferences => 'Blur Widget Preferences';
@@ -806,6 +807,7 @@ extension on _StringsEn {
 			case 'player_option_subtitle_none': return 'None';
 			case 'player_option_select_subtitle': return 'Select Subtitle Track';
 			case 'player_option_select_secondary_subtitle': return 'Select Secondary Subtitle Track';
+			case 'player_option_secondary_subtitle_appearance': return 'Secondary Subtitle Appearance';
 			case 'player_option_select_audio': return 'Select Audio Track';
 			case 'player_option_text_filter': return 'Use Regular Expression Filter';
 			case 'player_option_blur_preferences': return 'Blur Widget Preferences';
