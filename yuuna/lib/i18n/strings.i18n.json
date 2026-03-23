@@ -235,6 +235,7 @@
     "player_option_subtitle_external": "External",
     "player_option_subtitle_none": "None",
     "player_option_select_subtitle": "Select Subtitle Track",
+    "player_option_select_secondary_subtitle": "Select Secondary Subtitle Track",
     "player_option_select_audio": "Select Audio Track",
     "player_option_text_filter": "Use Regular Expression Filter",
     "player_option_blur_preferences": "Blur Widget Preferences",

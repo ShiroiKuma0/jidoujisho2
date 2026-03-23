@@ -52,6 +52,7 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   late final VlcPlayerController _playerController;
   late SubtitleItem _subtitleItem;
+  late SubtitleItem _secondarySubtitleItem;
   late SubtitleItem _emptySubtitleItem;
   late List<SubtitleItem> _subtitleItems;
 
@@ -69,6 +70,7 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
   final ValueNotifier<bool> _isMenuShownPermanent = ValueNotifier<bool>(false);
 
   late final ValueNotifier<Subtitle?> _currentSubtitle;
+  final ValueNotifier<Subtitle?> _currentSecondarySubtitle = ValueNotifier<Subtitle?>(null);
 
   final ValueNotifier<Subtitle?> _shadowingSubtitle =
       ValueNotifier<Subtitle?>(null);
@@ -264,6 +266,7 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
     );
 
     _subtitleItem = _emptySubtitleItem;
+    _secondarySubtitleItem = _emptySubtitleItem;
     _playPauseAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
@@ -589,6 +592,7 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
 
       Subtitle? newSubtitle = _subtitleItem.controller
           .durationSearch(_positionNotifier.value + subtitleDelay);
+
       String sentence = _currentSubtitle.value?.data ?? '';
       String regex = _subtitleOptionsNotifier.value.regexFilter;
       if (regex.isNotEmpty) {
@@ -648,6 +652,7 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
           // For remembering the last subtitle even if it has disappeared.
         }
 
+
         if (appModel.playerBackgroundPlay &&
             appModel.showSubtitlesInNotification &&
             !_sliderBeingDragged &&
@@ -658,6 +663,15 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
               artist: _currentSubtitle.value?.data,
             ),
           );
+        }
+      }
+
+      // Secondary subtitle: update independently but freeze during auto-pause
+      if (_secondarySubtitleItem != _emptySubtitleItem) {
+        if (_autoPauseNotifier.value == null) {
+          Subtitle? newSecondarySubtitle = _secondarySubtitleItem.controller
+              .durationSearch(_positionNotifier.value + subtitleDelay);
+          _currentSecondarySubtitle.value = newSecondarySubtitle;
         }
       }
 
@@ -875,6 +889,15 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
         buildBlurWidget(),
         buildBuffering(),
         buildMenuArea(),
+        if (MediaQuery.of(context).orientation == Orientation.landscape)
+          Center(
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: buildSecondarySubtitleArea(),
+            ),
+          )
+        else
+          buildSecondarySubtitleArea(),
         if (MediaQuery.of(context).orientation == Orientation.landscape)
           Center(
             child: AspectRatio(
@@ -1761,6 +1784,31 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
         },
       ),
       JidoujishoBottomSheetOption(
+        label: t.player_option_select_secondary_subtitle,
+        icon: Icons.subtitles,
+        action: () async {
+          Map<int, String> subtitleEmbeddedTracks =
+              await _playerController.getSpuTracks();
+
+          if (context.mounted) {
+            await showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              useRootNavigator: true,
+              builder: (_) => ValueListenableBuilder(
+                valueListenable: _subtitleItemNotifier,
+                builder: (_, __, child) {
+                  return JidoujishoBottomSheet(
+                    scrollToExtent: false,
+                    options: getSecondarySubtitleDialogOptions(subtitleEmbeddedTracks),
+                  );
+                },
+              ),
+            );
+          }
+        },
+      ),
+      JidoujishoBottomSheetOption(
         label: t.player_align_subtitle_transcript,
         icon: Icons.timer,
         action: () async {
@@ -2077,6 +2125,42 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
           _currentSubtitle.value = null;
           widget.source.clearCurrentSentence();
           refreshSubtitleWidget();
+        },
+      ),
+    );
+
+    return options;
+  }
+
+  List<JidoujishoBottomSheetOption> getSecondarySubtitleDialogOptions(
+      Map<int, String> embeddedTracks) {
+    List<JidoujishoBottomSheetOption> options = [];
+    for (SubtitleItem item in _subtitleItems) {
+      JidoujishoBottomSheetOption option = JidoujishoBottomSheetOption(
+        label: getSubtitleLabel(item: item, embeddedTracks: embeddedTracks),
+        icon: Icons.subtitles,
+        active: _secondarySubtitleItem == item,
+        action: () {
+          _secondarySubtitleItem = item;
+          if (!_secondarySubtitleItem.controller.initialized) {
+            _secondarySubtitleItem.controller.initial();
+          }
+          _currentSecondarySubtitle.value = null;
+        },
+      );
+
+      options.add(option);
+    }
+
+    options.add(
+      JidoujishoBottomSheetOption(
+        label: getSubtitleLabel(
+            item: _emptySubtitleItem, embeddedTracks: embeddedTracks),
+        icon: Icons.subtitles_off_outlined,
+        active: _secondarySubtitleItem == _emptySubtitleItem,
+        action: () {
+          _secondarySubtitleItem = _emptySubtitleItem;
+          _currentSecondarySubtitle.value = null;
         },
       ),
     );
@@ -2438,6 +2522,73 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
                 ? const EdgeInsets.only(bottom: 20)
                 : const EdgeInsets.only(bottom: _menuHeight + 8),
             child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget buildSecondarySubtitleArea() {
+    return ValueListenableBuilder<bool>(
+      valueListenable: _isMenuHidden,
+      child: buildSecondarySubtitle(),
+      builder: (context, isMenuHidden, child) {
+        return Align(
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 32),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget buildSecondarySubtitle() {
+    return ValueListenableBuilder<Subtitle?>(
+      valueListenable: _currentSecondarySubtitle,
+      builder: (context, currentSecondarySubtitle, _) {
+        if (currentSecondarySubtitle == null) {
+          return const SizedBox.shrink();
+        }
+
+        String subtitleText = currentSecondarySubtitle.data;
+
+        String regex = _subtitleOptionsNotifier.value.regexFilter;
+        if (regex.isNotEmpty) {
+          subtitleText = subtitleText.replaceAll(RegExp(regex), '');
+        }
+
+        double blurRadius =
+            _subtitleOptionsNotifier.value.subtitleBackgroundBlurRadius;
+        return ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: blurRadius, sigmaY: blurRadius),
+            child: Container(
+              color: Colors.black.withOpacity(
+                _subtitleOptionsNotifier.value.subtitleBackgroundOpacity,
+              ),
+              padding: EdgeInsets.only(
+                top: Spacing.of(context).spaces.small * 0.6,
+                bottom: Spacing.of(context).spaces.extraSmall,
+                left: Spacing.of(context).spaces.small,
+                right: Spacing.of(context).spaces.small * 0.4,
+              ),
+              child: Stack(
+                children: <Widget>[
+                  Text(
+                    subtitleText,
+                    textAlign: TextAlign.center,
+                    style: subtitleOutlineStyle,
+                  ),
+                  Text(
+                    subtitleText,
+                    textAlign: TextAlign.center,
+                    style: subtitleTextStyle,
+                  ),
+                ],
+              ),
+            ),
           ),
         );
       },
