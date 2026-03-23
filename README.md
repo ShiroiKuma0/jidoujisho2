@@ -4,7 +4,7 @@
 <h3 align="center">jidoujisho</h3>
 <p align="center">A full-featured immersion language learning suite for mobile.</p>
 <p align="center">
-  <a href="https://github.com/arianneorpilla/jidoujisho/releases/tag/2.9.0-preview3">
+  <a href="https://github.com/arianneorpilla/jidoujisho/releases/tag/2.9.1">
     <img src="https://img.shields.io/github/v/release/arianneorpilla/jidoujisho?include_prereleases" alt="latest release" />
   </a>
   <a href="https://github.com/arianneorpilla/jidoujisho/commits/main">
@@ -34,7 +34,7 @@
 ---
 
 <p align="center" style="margin:0"><b>‍🧪 Latest Release:
-  <a href="https://github.com/arianneorpilla/jidoujisho/releases/tag/2.9.0-preview4">2.9.0-preview4</a>
+  <a href="https://github.com/arianneorpilla/jidoujisho/releases/tag/2.9.1">2.9.1</a>
 </b></p>
 
 <b>
