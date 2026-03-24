@@ -10,6 +10,7 @@ class SecondarySubtitleOptions {
     required this.subtitleOutlineColor,
     required this.subtitleBackgroundBlurRadius,
     required this.subtitleBackgroundOpacity,
+    required this.verticalOffset,
   });
 
   /// Subtitle font size.
@@ -35,4 +36,7 @@ class SecondarySubtitleOptions {
 
   /// Subtitle background opacity.
   double subtitleBackgroundOpacity;
+
+  /// Vertical offset for subtitle position in pixels.
+  double verticalOffset;
 }

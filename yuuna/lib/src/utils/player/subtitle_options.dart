@@ -14,6 +14,7 @@ class SubtitleOptions {
     required this.subtitleOutlineColor,
     required this.subtitleBackgroundBlurRadius,
     required this.alwaysAboveBottomBar,
+    required this.verticalOffset,
   });
 
   /// Audio allowance, used for audio export, in milliseconds.
@@ -51,4 +52,7 @@ class SubtitleOptions {
 
   /// Whether or not the subtitle should always be above the bottom bar.
   bool alwaysAboveBottomBar;
+
+  /// Vertical offset for subtitle position in pixels.
+  double verticalOffset;
 }

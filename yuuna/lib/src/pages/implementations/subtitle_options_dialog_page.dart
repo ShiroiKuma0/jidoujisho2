@@ -40,6 +40,7 @@ class _SubtitleOptionsDialogPage
   late final TextEditingController _opacityController;
   late final TextEditingController _widthController;
   late final TextEditingController _blurController;
+  late final TextEditingController _verticalOffsetController;
 
   late ValueNotifier<bool> _aboveBottomBarNotifier;
   List<String> fontWeights = ['Thin', 'Normal', 'Bold'];
@@ -71,6 +72,8 @@ class _SubtitleOptionsDialogPage
         TextEditingController(text: _options.subtitleOutlineWidth.toString());
     _blurController = TextEditingController(
         text: _options.subtitleBackgroundBlurRadius.toString());
+    _verticalOffsetController =
+        TextEditingController(text: _options.verticalOffset.toString());
     _aboveBottomBarNotifier =
         ValueNotifier<bool>(_options.alwaysAboveBottomBar);
   }
@@ -433,6 +436,18 @@ class _SubtitleOptionsDialogPage
                     ),
                   ),
                 ),
+                TextField(
+                  controller: _verticalOffsetController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                  decoration: InputDecoration(
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                    labelText: t.player_option_vertical_offset,
+                    suffixText: t.unit_pixels,
+                    suffixIcon: JidoujishoIconButton(size: 18, tooltip: t.reset,
+                      onTap: () async { _verticalOffsetController.text = '0.0'; FocusScope.of(context).unfocus(); },
+                      icon: Icons.undo),
+                  ),
+                ),
                 const SizedBox(height: 10),
                 buildAlwaysAboveBottomBar(),
                 const SizedBox(height: 10),
@@ -492,6 +507,9 @@ class _SubtitleOptionsDialogPage
     String blurText = _blurController.text;
     double? newBlur = double.tryParse(blurText);
 
+    String verticalOffsetText = _verticalOffsetController.text;
+    double? newVerticalOffset = double.tryParse(verticalOffsetText);
+
     bool newAlwaysAboveBottomBar = _aboveBottomBarNotifier.value;
 
     if (newDelay != null &&
@@ -502,6 +520,7 @@ class _SubtitleOptionsDialogPage
         newOpacity != null &&
         newWidth != null &&
         newBlur != null &&
+        newVerticalOffset != null &&
         (newOpacity <= 1 && newOpacity >= 0) &&
         newFontSize >= 0 &&
         newWidth >= 0 &&
@@ -526,6 +545,7 @@ class _SubtitleOptionsDialogPage
       subtitleOptions.subtitleOutlineWidth = newWidth;
       subtitleOptions.subtitleOutlineColor = newOutlineColor;
       subtitleOptions.subtitleBackgroundBlurRadius = newBlur;
+      subtitleOptions.verticalOffset = newVerticalOffset;
       subtitleOptions.alwaysAboveBottomBar = newAlwaysAboveBottomBar;
 
       widget.notifier.value = subtitleOptions;

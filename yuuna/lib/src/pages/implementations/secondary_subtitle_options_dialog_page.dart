@@ -34,6 +34,7 @@ class _SecondarySubtitleOptionsDialogPage
   late final TextEditingController _opacityController;
   late final TextEditingController _widthController;
   late final TextEditingController _blurController;
+  late final TextEditingController _verticalOffsetController;
 
   List<String> fontWeights = ['Thin', 'Normal', 'Bold'];
   int fontWeightIdx = 1;
@@ -57,6 +58,8 @@ class _SecondarySubtitleOptionsDialogPage
         TextEditingController(text: _options.subtitleOutlineWidth.toString());
     _blurController = TextEditingController(
         text: _options.subtitleBackgroundBlurRadius.toString());
+    _verticalOffsetController =
+        TextEditingController(text: _options.verticalOffset.toString());
   }
 
   @override
@@ -289,6 +292,18 @@ class _SecondarySubtitleOptionsDialogPage
                     ),
                   ),
                 ),
+                TextField(
+                  controller: _verticalOffsetController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                  decoration: InputDecoration(
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                    labelText: t.player_option_vertical_offset,
+                    suffixText: t.unit_pixels,
+                    suffixIcon: JidoujishoIconButton(size: 18, tooltip: t.reset,
+                      onTap: () async { _verticalOffsetController.text = '0.0'; FocusScope.of(context).unfocus(); },
+                      icon: Icons.undo),
+                  ),
+                ),
                 const SizedBox(height: 10),
               ],
             ),
@@ -320,12 +335,16 @@ class _SecondarySubtitleOptionsDialogPage
     String blurText = _blurController.text;
     double? newBlur = double.tryParse(blurText);
 
+    String verticalOffsetText = _verticalOffsetController.text;
+    double? newVerticalOffset = double.tryParse(verticalOffsetText);
+
     if (newFontSize != null &&
         newFontColor != null &&
         newOutlineColor != null &&
         newOpacity != null &&
         newWidth != null &&
         newBlur != null &&
+        newVerticalOffset != null &&
         (newOpacity <= 1 && newOpacity >= 0) &&
         newFontSize >= 0 &&
         newWidth >= 0 &&
@@ -339,6 +358,7 @@ class _SecondarySubtitleOptionsDialogPage
         subtitleOutlineWidth: newWidth,
         subtitleOutlineColor: newOutlineColor,
         subtitleBackgroundBlurRadius: newBlur,
+        verticalOffset: newVerticalOffset,
       );
 
       widget.notifier.value = options;

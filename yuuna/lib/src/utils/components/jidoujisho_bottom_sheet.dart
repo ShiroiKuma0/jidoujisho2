@@ -78,7 +78,7 @@ class JidoujishoBottomSheet extends ConsumerWidget {
               color: (option.active)
                   ? Colors.red
                   : appModel.isDarkMode
-                      ? Colors.white
+                      ? Color(appModel.darkThemeTextColor)
                       : Colors.black,
             ),
           ),

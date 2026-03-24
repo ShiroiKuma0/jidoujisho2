@@ -906,24 +906,8 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
         buildBlurWidget(),
         buildBuffering(),
         buildMenuArea(),
-        if (MediaQuery.of(context).orientation == Orientation.landscape)
-          Center(
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: buildSecondarySubtitleArea(),
-            ),
-          )
-        else
-          buildSecondarySubtitleArea(),
-        if (MediaQuery.of(context).orientation == Orientation.landscape)
-          Center(
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: buildSubtitleArea(),
-            ),
-          )
-        else
-          buildSubtitleArea(),
+        buildSecondarySubtitleArea(),
+        buildSubtitleArea(),
         buildCentralPlayPause(),
         Padding(
           padding: MediaQuery.of(context).orientation == Orientation.landscape
@@ -1486,7 +1470,7 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
                     color: (shadowingSubtitle != null)
                         ? Colors.red
                         : appModel.isDarkMode
-                            ? Colors.white
+                            ? Color(appModel.darkThemeTextColor)
                             : Colors.black,
                   ),
                 ),
@@ -2610,10 +2594,8 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
         return Align(
           alignment: Alignment.bottomCenter,
           child: Padding(
-            padding: _isMenuHidden.value &&
-                    !_subtitleOptionsNotifier.value.alwaysAboveBottomBar
-                ? const EdgeInsets.only(bottom: 20)
-                : const EdgeInsets.only(bottom: _menuHeight + 8),
+            padding: EdgeInsets.only(
+                bottom: (20 + _subtitleOptionsNotifier.value.verticalOffset).clamp(0, double.infinity)),
             child: child,
           ),
         );
@@ -2629,7 +2611,8 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
         return Align(
           alignment: Alignment.topCenter,
           child: Padding(
-            padding: const EdgeInsets.only(top: 32),
+            padding: EdgeInsets.only(
+                top: (32 + _secondarySubtitleOptionsNotifier.value.verticalOffset).clamp(0, double.infinity)),
             child: child,
           ),
         );

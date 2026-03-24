@@ -408,6 +408,34 @@ class AppModel with ChangeNotifier {
         textBaseline: targetLanguage.textBaseline,
       );
 
+  /// Text style with dark theme color applied.
+  TextStyle get darkTextStyle => TextStyle(
+        fontFamily: targetLanguage.defaultFontFamily,
+        fontFeatures: const [FontFeature('liga', 0)],
+        locale: targetLanguage.locale,
+        textBaseline: targetLanguage.textBaseline,
+        color: Color(darkThemeTextColor),
+      );
+
+  /// Dark text theme using the custom color.
+  TextTheme get darkTextTheme => TextTheme(
+        displayLarge: darkTextStyle,
+        displayMedium: darkTextStyle,
+        displaySmall: darkTextStyle,
+        headlineLarge: darkTextStyle,
+        headlineMedium: darkTextStyle,
+        headlineSmall: darkTextStyle,
+        titleLarge: darkTextStyle,
+        titleMedium: darkTextStyle,
+        titleSmall: darkTextStyle,
+        bodyLarge: darkTextStyle,
+        bodyMedium: darkTextStyle,
+        bodySmall: darkTextStyle,
+        labelLarge: darkTextStyle,
+        labelMedium: darkTextStyle,
+        labelSmall: darkTextStyle,
+      );
+
   /// This override is a workaround required to theme the app-wide [TextTheme]
   /// based on the [Locale] and [TextBaseline] of the active target language.
   TextTheme get textTheme => TextTheme(
@@ -514,7 +542,9 @@ class AppModel with ChangeNotifier {
   /// Shows when the current mode is a dark theme.
   ThemeData get darkTheme => ThemeData(
         scaffoldBackgroundColor: Colors.black,
-        textTheme: textTheme,
+        unselectedWidgetColor: Color(darkThemeTextColor).withOpacity(0.7),
+        textTheme: darkTextTheme,
+        iconTheme: IconThemeData(color: Color(darkThemeTextColor)),
         switchTheme: SwitchThemeData(
           thumbColor: MaterialStateColor.resolveWith((states) {
             return states.contains(MaterialState.selected)
@@ -527,17 +557,19 @@ class AppModel with ChangeNotifier {
                 : Colors.grey;
           }),
         ),
-        appBarTheme: const AppBarTheme(
+        appBarTheme: AppBarTheme(
           elevation: 0,
           centerTitle: false,
           backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
+          foregroundColor: Color(darkThemeTextColor),
+          iconTheme: IconThemeData(color: Color(darkThemeTextColor)),
         ),
         bottomNavigationBarTheme: BottomNavigationBarThemeData(
           elevation: 0,
           type: BottomNavigationBarType.fixed,
-          selectedLabelStyle: textTheme.labelSmall,
-          unselectedLabelStyle: textTheme.labelSmall,
+          selectedLabelStyle: darkTextTheme.labelSmall,
+          unselectedLabelStyle: darkTextTheme.labelSmall,
+          unselectedItemColor: Color(darkThemeTextColor).withOpacity(0.7),
           showSelectedLabels: true,
           showUnselectedLabels: true,
           backgroundColor: Colors.black,
@@ -553,13 +585,13 @@ class AppModel with ChangeNotifier {
         cardColor: const Color.fromARGB(255, 30, 30, 30),
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
-            foregroundColor: Colors.white,
+            foregroundColor: Color(darkThemeTextColor),
           ),
         ),
         listTileTheme: ListTileThemeData(
           dense: true,
           selectedTileColor: Colors.grey.shade600,
-          selectedColor: Colors.white,
+          selectedColor: Color(darkThemeTextColor),
           horizontalTitleGap: 0,
         ),
         inputDecorationTheme: const InputDecorationTheme(
@@ -3277,6 +3309,8 @@ class AppModel with ChangeNotifier {
         _preferences.get('subtitle_background_blur_radius', defaultValue: 0.0);
     bool alwaysAboveBottomBar =
         _preferences.get('subtitle_above_bar', defaultValue: false);
+    double verticalOffset =
+        _preferences.get('subtitle_vertical_offset', defaultValue: 0.0);
 
     return SubtitleOptions(
       audioAllowance: audioAllowance,
@@ -3291,6 +3325,7 @@ class AppModel with ChangeNotifier {
       subtitleOutlineWidth: subtitleOutlineWidth,
       subtitleOutlineColor: subtitleOutlineColor,
       alwaysAboveBottomBar: alwaysAboveBottomBar,
+      verticalOffset: verticalOffset,
     );
   }
 
@@ -3311,6 +3346,7 @@ class AppModel with ChangeNotifier {
     _preferences.put('subtitle_background_blur_radius',
         options.subtitleBackgroundBlurRadius);
     _preferences.put('subtitle_above_bar', options.alwaysAboveBottomBar);
+    _preferences.put('subtitle_vertical_offset', options.verticalOffset);
   }
 
   /// Get the secondary subtitle options used in the player.
@@ -3328,6 +3364,8 @@ class AppModel with ChangeNotifier {
         _preferences.get('secondary_subtitle_background_blur_radius', defaultValue: 0.0);
     double subtitleBackgroundOpacity =
         _preferences.get('secondary_subtitle_background_opacity', defaultValue: 0.0);
+    double secondaryVerticalOffset =
+        _preferences.get('secondary_subtitle_vertical_offset', defaultValue: 0.0);
 
     return SecondarySubtitleOptions(
       fontSize: fontSize,
@@ -3338,6 +3376,7 @@ class AppModel with ChangeNotifier {
       subtitleOutlineColor: subtitleOutlineColor,
       subtitleBackgroundBlurRadius: subtitleBackgroundBlurRadius,
       subtitleBackgroundOpacity: subtitleBackgroundOpacity,
+      verticalOffset: secondaryVerticalOffset,
     );
   }
 
@@ -3354,6 +3393,18 @@ class AppModel with ChangeNotifier {
     _preferences.put('secondary_subtitle_outline_color', options.subtitleOutlineColor);
     _preferences.put('secondary_subtitle_background_blur_radius',
         options.subtitleBackgroundBlurRadius);
+    _preferences.put('secondary_subtitle_vertical_offset', options.verticalOffset);
+  }
+
+  /// Get the UI text color for dark theme.
+  int get darkThemeTextColor {
+    return _preferences.get('dark_theme_text_color', defaultValue: 0xffffffff);
+  }
+
+  /// Set the UI text color for dark theme.
+  void setDarkThemeTextColor(int color) {
+    _preferences.put('dark_theme_text_color', color);
+    notifyListeners();
   }
 
   /// Get the dictionary font color used in the player.

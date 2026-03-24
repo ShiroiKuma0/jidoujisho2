@@ -1,4 +1,5 @@
 import 'package:change_notifier_builder/change_notifier_builder.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter/material.dart';
 import 'package:spaces/spaces.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -314,6 +315,39 @@ class _HomePageState extends BasePageState<HomePage>
     );
   }
 
+  void showUiTextColorPicker() {
+    Color newColor = Color(appModel.darkThemeTextColor);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: Color(appModel.darkThemeTextColor),
+            paletteType: PaletteType.hueWheel,
+            onColorChanged: (value) {
+              newColor = value;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            child: Text(t.dialog_save),
+            onPressed: () {
+              appModel.setDarkThemeTextColor(newColor.value);
+              Navigator.of(context).pop();
+            },
+          ),
+          TextButton(
+            child: Text(t.dialog_cancel),
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   List<PopupMenuItem<VoidCallback>> getMenuItems() {
     return [
       buildPopupItem(
@@ -349,6 +383,11 @@ class _HomePageState extends BasePageState<HomePage>
         label: t.options_profiles,
         icon: Icons.switch_account,
         action: appModel.showProfilesMenu,
+      ),
+      buildPopupItem(
+        label: t.options_ui_text_color,
+        icon: Icons.format_color_text,
+        action: showUiTextColorPicker,
       ),
       buildPopupItem(
         label: t.options_github,
