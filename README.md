@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/ShiroiKuma0/jidoujisho2/yuuna/assets/meta/icon.png" width="250" height="250">
+  <img src="https://github.com/ShiroiKuma0/jidoujisho2/blob/main/yuuna/assets/meta/icon.png" width="250" height="250">
 </p>
 <h3 align="center">jidoujisho</h3>
 <p align="center">A full-featured immersion language learning suite for mobile.</p>
@@ -34,8 +34,11 @@
 ---
 
 <p align="center" style="margin:0"><b>‍A fork of:
-  <a href="https://github.com/arianneorpilla/jidoujisho/">jidoujisho</a>. I've added significant functionality:
+  <a href="https://github.com/arianneorpilla/jidoujisho/">jidoujisho</a>. I've added significant functionality.
 </b></p>
+
+# Code additions
+
 * Display secondary subtitle - for English translation - on top concurrently
 * Subtitle font, color, weight etc. modification for primary and secondary subtitles
 * Subtitles vertical position change
