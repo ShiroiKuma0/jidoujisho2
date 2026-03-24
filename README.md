@@ -4,7 +4,7 @@
 <h3 align="center">白い熊の自動辞書第二版</h3>
 <p align="center">A full-featured immersion language learning suite for mobile.</p>
 <p align="center">
-  <a href="https://github.com/ShiroiKuma0/jidoujisho2/releases/tag/2.9.5">
+  <a href="https://github.com/ShiroiKuma0/jidoujisho2/releases/tag/2.9.6">
     <img src="https://img.shields.io/github/v/release/arianneorpilla/jidoujisho?include_prereleases" alt="latest release" />
   </a>
   <a href="https://github.com/ShiroiKuma0/jidoujisho2/commits/main">
@@ -47,7 +47,7 @@
 * Etc. - as per the changelog
 
 <p align="center" style="margin:0"><b>‍🧪 Latest Release:
-  <a href="https://github.com/ShiroiKuma0/jidoujisho2/releases/tag/2.9.5">2.9.5</a>
+  <a href="https://github.com/ShiroiKuma0/jidoujisho2/releases/tag/2.9.6">2.9.6</a>
 </b></p>
 
 <b>
@@ -105,6 +105,7 @@
   <a href="https://github.com/ShiroiKuma0/jidoujisho2/releases/tag/2.7.0">2.7</a> ·
   <a href="https://github.com/ShiroiKuma0/jidoujisho2/releases/tag/2.8.0">2.8</a><br></b>
 </b><i>白い熊の自動辞書第二版</i> <b>
+  <a href="https://github.com/ShiroiKuma0/jidoujisho2/releases/tag/2.9.5">2.9.5</a> .
   <a href="https://github.com/ShiroiKuma0/jidoujisho2/releases/tag/2.9.5">2.9.5</a></b>
 </p>
 
