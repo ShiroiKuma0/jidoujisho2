@@ -660,6 +660,7 @@ class AppModel with ChangeNotifier {
     return _currentSubtitleOptions;
   }
 
+  /// Get the current secondary subtitle options notifier.
   ValueNotifier<SecondarySubtitleOptions>? get currentSecondarySubtitleOptions {
     _currentSecondarySubtitleOptions ??= ValueNotifier<SecondarySubtitleOptions>(secondarySubtitleOptions);
     return _currentSecondarySubtitleOptions;
