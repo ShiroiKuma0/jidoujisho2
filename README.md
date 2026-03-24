@@ -103,7 +103,7 @@
   <a href="https://github.com/ShiroiKuma0/jidoujisho2/releases/tag/2.5">2.5</a> · 
   <a href="https://github.com/ShiroiKuma0/jidoujisho2/releases/tag/2.6.0">2.6</a> · 
   <a href="https://github.com/ShiroiKuma0/jidoujisho2/releases/tag/2.7.0">2.7</a> ·
-  <a href="https://github.com/ShiroiKuma0/jidoujisho2/releases/tag/2.8.0">2.8</a></b>
+  <a href="https://github.com/ShiroiKuma0/jidoujisho2/releases/tag/2.8.0">2.8</a><br></b>
 </b><i>白い熊の自動辞書第二版</i> <b>
   <a href="https://github.com/ShiroiKuma0/jidoujisho2/releases/tag/2.9.5">2.9.5</a></b>
 </p>
