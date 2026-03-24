@@ -34,10 +34,10 @@
 ---
 
 <p align="center" style="margin:0"><b>‍A fork of:
-  <a href="https://github.com/arianneorpilla/jidoujisho/">jidoujisho</a>. I've added significant functionality.
+  <a href="https://github.com/arianneorpilla/jidoujisho/" target="_blank">jidoujisho</a>. I've added significant functionality.
 </b></p>
 
-# Code additions
+# Code additions on top of original jidoujisho
 
 * Display secondary subtitle - for English translation - on top concurrently
 * Subtitle font, color, weight etc. modification for primary and secondary subtitles
