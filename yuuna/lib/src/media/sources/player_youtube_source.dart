@@ -963,7 +963,14 @@ Future<VideoManifest> computeManifests(ComputeManifestParams params) async {
   YoutubeExplode yt = YoutubeExplode();
 
   List<Future> futures = [
-    yt.videos.streamsClient.getManifest(params.videoId),
+    yt.videos.streamsClient.getManifest(
+      params.videoId,
+      ytClients: [
+        YoutubeApiClient.ios,
+        YoutubeApiClient.androidVr,
+        YoutubeApiClient.safari,
+      ],
+    ),
   ];
   if (params.closedCaptionsManifest == null) {
     futures.add(yt.videos.closedCaptions.getManifest(
