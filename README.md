@@ -34,7 +34,7 @@
 ---
 
 <p align="center" style="margin:0"><b>‍A fork of:
-  <a href="https://github.com/arianneorpilla/jidoujisho/" target="_blank">jidoujisho</a>. I've added significant functionality.
+  <a target="_blank" href="https://github.com/arianneorpilla/jidoujisho/">jidoujisho</a>. I've added significant functionality.
 </b></p>
 
 # Code additions on top of original jidoujisho
