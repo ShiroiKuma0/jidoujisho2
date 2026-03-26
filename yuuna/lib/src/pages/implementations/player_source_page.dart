@@ -235,6 +235,17 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
 
   PlayerMediaSource get source => widget.source as PlayerMediaSource;
 
+  /// Override back button to close dictionary instead of exiting.
+  @override
+  Future<bool> onWillPop() async {
+    if (currentResult != null) {
+      _selectableTextController.clearSelection();
+      clearDictionaryResult();
+      return false;
+    }
+    return super.onWillPop();
+  }
+
   /// Executed on dictionary dismiss.
   @override
   void onDictionaryDismiss() {
