@@ -238,6 +238,8 @@
     "player_option_select_secondary_subtitle": "Select Secondary Subtitle Track",
     "player_option_secondary_subtitle_appearance": "Secondary Subtitle Appearance",
     "player_option_dictionary_font_color": "Dictionary Font Color",
+    "player_option_dictionary_heading_size": "Dictionary Heading Font Size",
+    "player_option_dictionary_entry_size": "Dictionary Entry Font Size",
     "options_ui_text_color": "UI Text Color",
     "player_option_vertical_offset": "Subtitle vertical offset",
     "player_option_select_audio": "Select Audio Track",
@@ -319,6 +321,7 @@
     "auto_search": "Auto search",
     "auto_search_debounce_delay": "Auto search debounce delay",
     "dictionary_font_size": "Dictionary font size",
+    "dictionary_heading_font_size": "Dictionary heading font size",
     "close_on_export": "Close on Export",
     "close_on_export_on":
         "The Card Creator will now automatically close upon card export.",

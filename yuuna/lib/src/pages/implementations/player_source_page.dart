@@ -2014,6 +2014,96 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
         },
       ),
       JidoujishoBottomSheetOption(
+        label: t.player_option_dictionary_heading_size,
+        icon: Icons.title,
+        action: () async {
+          bool shouldResume = !_dialogSmartPaused;
+          await dialogSmartPause();
+          if (context.mounted) {
+            TextEditingController sizeController = TextEditingController(
+                text: appModel.dictionaryHeadingFontSize.toString());
+            await showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                content: TextField(
+                  controller: sizeController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                    labelText: t.player_option_dictionary_heading_size,
+                    suffixText: t.unit_pixels,
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    child: Text(t.dialog_save),
+                    onPressed: () {
+                      double? newSize = double.tryParse(sizeController.text);
+                      if (newSize != null && newSize > 0) {
+                        appModel.setDictionaryHeadingFontSize(newSize);
+                      }
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                  TextButton(
+                    child: Text(t.dialog_cancel),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            );
+          }
+          if (shouldResume) {
+            await dialogSmartResume();
+          }
+        },
+      ),
+      JidoujishoBottomSheetOption(
+        label: t.player_option_dictionary_entry_size,
+        icon: Icons.text_fields,
+        action: () async {
+          bool shouldResume = !_dialogSmartPaused;
+          await dialogSmartPause();
+          if (context.mounted) {
+            TextEditingController sizeController = TextEditingController(
+                text: appModel.dictionaryFontSize.toString());
+            await showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                content: TextField(
+                  controller: sizeController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                    labelText: t.player_option_dictionary_entry_size,
+                    suffixText: t.unit_pixels,
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    child: Text(t.dialog_save),
+                    onPressed: () {
+                      double? newSize = double.tryParse(sizeController.text);
+                      if (newSize != null && newSize > 0) {
+                        appModel.setDictionaryFontSize(newSize);
+                      }
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                  TextButton(
+                    child: Text(t.dialog_cancel),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            );
+          }
+          if (shouldResume) {
+            await dialogSmartResume();
+          }
+        },
+      ),
+      JidoujishoBottomSheetOption(
         label: t.player_option_blur_preferences,
         icon: Icons.blur_circular_sharp,
         action: () async {

@@ -1,9 +1,9 @@
 /// Generated file. Do not edit.
 ///
 /// Locales: 1
-/// Strings: 414
+/// Strings: 417
 ///
-/// Built on 2026-03-24 at 00:32 UTC
+/// Built on 2026-03-26 at 19:53 UTC
 
 // coverage:ignore-file
 // ignore_for_file: type=lint
@@ -366,6 +366,8 @@ class _StringsEn implements BaseTranslations<AppLocale, _StringsEn> {
 	String get player_option_select_secondary_subtitle => 'Select Secondary Subtitle Track';
 	String get player_option_secondary_subtitle_appearance => 'Secondary Subtitle Appearance';
 	String get player_option_dictionary_font_color => 'Dictionary Font Color';
+	String get player_option_dictionary_heading_size => 'Dictionary Heading Font Size';
+	String get player_option_dictionary_entry_size => 'Dictionary Entry Font Size';
 	String get options_ui_text_color => 'UI Text Color';
 	String get player_option_vertical_offset => 'Subtitle vertical offset';
 	String get player_option_select_audio => 'Select Audio Track';
@@ -445,6 +447,7 @@ class _StringsEn implements BaseTranslations<AppLocale, _StringsEn> {
 	String get auto_search => 'Auto search';
 	String get auto_search_debounce_delay => 'Auto search debounce delay';
 	String get dictionary_font_size => 'Dictionary font size';
+	String get dictionary_heading_font_size => 'Dictionary heading font size';
 	String get close_on_export => 'Close on Export';
 	String get close_on_export_on => 'The Card Creator will now automatically close upon card export.';
 	String get close_on_export_off => 'The Card Creator will no longer close upon card export.';
@@ -812,6 +815,8 @@ extension on _StringsEn {
 			case 'player_option_select_secondary_subtitle': return 'Select Secondary Subtitle Track';
 			case 'player_option_secondary_subtitle_appearance': return 'Secondary Subtitle Appearance';
 			case 'player_option_dictionary_font_color': return 'Dictionary Font Color';
+			case 'player_option_dictionary_heading_size': return 'Dictionary Heading Font Size';
+			case 'player_option_dictionary_entry_size': return 'Dictionary Entry Font Size';
 			case 'options_ui_text_color': return 'UI Text Color';
 			case 'player_option_vertical_offset': return 'Subtitle vertical offset';
 			case 'player_option_select_audio': return 'Select Audio Track';
@@ -891,6 +896,7 @@ extension on _StringsEn {
 			case 'auto_search': return 'Auto search';
 			case 'auto_search_debounce_delay': return 'Auto search debounce delay';
 			case 'dictionary_font_size': return 'Dictionary font size';
+			case 'dictionary_heading_font_size': return 'Dictionary heading font size';
 			case 'close_on_export': return 'Close on Export';
 			case 'close_on_export_on': return 'The Card Creator will now automatically close upon card export.';
 			case 'close_on_export_off': return 'The Card Creator will no longer close upon card export.';

@@ -113,8 +113,14 @@ class JapaneseLanguage extends Language {
         style: Theme.of(context)
             .textTheme
             .titleLarge!
-            .copyWith(fontWeight: FontWeight.bold),
-        rubyStyle: Theme.of(context).textTheme.labelSmall,
+            .copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: appModel.dictionaryHeadingFontSize,
+              color: Color(appModel.dictionaryFontColor),
+            ),
+        rubyStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Color(appModel.dictionaryFontColor),
+            ),
         indexAction: indexAction,
         indexStyle: indexStyle,
       );
@@ -129,8 +135,14 @@ class JapaneseLanguage extends Language {
       style: Theme.of(context)
           .textTheme
           .titleLarge!
-          .copyWith(fontWeight: FontWeight.bold),
-      rubyStyle: Theme.of(context).textTheme.labelSmall,
+          .copyWith(
+            fontWeight: FontWeight.bold,
+            fontSize: appModel.dictionaryHeadingFontSize,
+            color: Color(appModel.dictionaryFontColor),
+          ),
+      rubyStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Color(appModel.dictionaryFontColor),
+          ),
       indexAction: indexAction,
       indexStyle: indexStyle,
     );
@@ -160,7 +172,7 @@ class JapaneseLanguage extends Language {
     List<Widget> listWidgets = [];
 
     Color color = Theme.of(context).brightness == Brightness.dark
-        ? Colors.white
+        ? Color(appModel.dictionaryFontColor)
         : Colors.black;
 
     Widget getAccentTop(String text) {

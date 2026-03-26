@@ -254,7 +254,7 @@ class _DictionaryTermActionsRowState
       } else {
         late Color enabledColor;
         Color defaultColor = Theme.of(context).brightness == Brightness.dark
-            ? Colors.white
+            ? Color(appModel.dictionaryFontColor)
             : Colors.black;
         enabledColor = colors[quickAction.uniqueKey] ?? defaultColor;
         button = Padding(
@@ -265,7 +265,7 @@ class _DictionaryTermActionsRowState
             disabledColor: enabledColor.withOpacity(0.5),
             shapeBorder: const RoundedRectangleBorder(),
             backgroundColor: Theme.of(context).brightness == Brightness.dark
-                ? Colors.white.withOpacity(0.05)
+                ? Color(appModel.dictionaryFontColor).withOpacity(0.05)
                 : Colors.black.withOpacity(0.05),
             size: Spacing.of(context).spaces.semiBig,
             tooltip: quickAction.getLocalisedLabel(appModel),

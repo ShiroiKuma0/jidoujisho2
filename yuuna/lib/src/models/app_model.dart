@@ -3632,6 +3632,9 @@ class AppModel with ChangeNotifier {
   /// Default dictionary font size for meanings.
   final double defaultDictionaryFontSize = 16;
 
+  /// Default value of [dictionaryHeadingFontSize].
+  final double defaultDictionaryHeadingFontSize = 22;
+
   /// The search debounce delay in milliseconds for searching in the app..
   double get dictionaryFontSize {
     return _preferences.get('dictionary_entry_font_size',
@@ -3641,6 +3644,17 @@ class AppModel with ChangeNotifier {
   /// Sets the debounce delay in milliseconds for searching in the app..
   void setDictionaryFontSize(double fontSize) async {
     await _preferences.put('dictionary_entry_font_size', fontSize);
+  }
+
+  /// The heading font size used in the dictionary.
+  double get dictionaryHeadingFontSize {
+    return _preferences.get('dictionary_heading_font_size',
+        defaultValue: defaultDictionaryHeadingFontSize);
+  }
+
+  /// Sets the heading font size used in the dictionary.
+  void setDictionaryHeadingFontSize(double fontSize) async {
+    await _preferences.put('dictionary_heading_font_size', fontSize);
   }
 
   /// The search debounce delay in milliseconds for searching in the app..

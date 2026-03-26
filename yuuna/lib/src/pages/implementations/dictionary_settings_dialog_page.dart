@@ -16,6 +16,7 @@ class DictionarySettingsDialogPage extends BasePage {
 class _DictionaryDialogPageState extends BasePageState {
   late TextEditingController _debounceDelayController;
   late TextEditingController _dictionaryFontSizeController;
+  late TextEditingController _dictionaryHeadingFontSizeController;
   late TextEditingController _maximumTermsController;
 
   @override
@@ -26,6 +27,8 @@ class _DictionaryDialogPageState extends BasePageState {
         text: appModelNoUpdate.searchDebounceDelay.toString());
     _dictionaryFontSizeController = TextEditingController(
         text: appModelNoUpdate.dictionaryFontSize.toString());
+    _dictionaryHeadingFontSizeController = TextEditingController(
+        text: appModelNoUpdate.dictionaryHeadingFontSize.toString());
 
     _maximumTermsController =
         TextEditingController(text: appModelNoUpdate.maximumTerms.toString());
@@ -72,6 +75,7 @@ class _DictionaryDialogPageState extends BasePageState {
               const JidoujishoDivider(),
               buildDebounceDelayField(),
               buildDictionaryFontSizeField(),
+              buildDictionaryHeadingFontSizeField(),
               buildMaximumTermsField(),
               const Space.normal(),
               buildManageDuplicateChecks(),
@@ -170,6 +174,38 @@ class _DictionaryDialogPageState extends BasePageState {
           icon: Icons.undo,
         ),
         labelText: t.dictionary_font_size,
+      ),
+    );
+  }
+
+  Widget buildDictionaryHeadingFontSizeField() {
+    return TextField(
+      onChanged: (value) {
+        double newSize =
+            double.tryParse(value) ?? appModel.defaultDictionaryHeadingFontSize;
+        if (newSize.isNegative) {
+          newSize = appModel.defaultDictionaryHeadingFontSize;
+          _dictionaryHeadingFontSizeController.text = newSize.toString();
+        }
+        appModel.setDictionaryHeadingFontSize(newSize);
+      },
+      controller: _dictionaryHeadingFontSizeController,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        suffixText: t.unit_pixels,
+        suffixIcon: JidoujishoIconButton(
+          tooltip: t.reset,
+          size: 18,
+          onTap: () async {
+            _dictionaryHeadingFontSizeController.text =
+                appModel.defaultDictionaryHeadingFontSize.toString();
+            appModel.setDictionaryHeadingFontSize(appModel.defaultDictionaryHeadingFontSize);
+            FocusScope.of(context).unfocus();
+          },
+          icon: Icons.undo,
+        ),
+        labelText: t.dictionary_heading_font_size,
       ),
     );
   }

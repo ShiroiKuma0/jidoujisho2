@@ -387,11 +387,17 @@ abstract class Language {
           style: Theme.of(context)
               .textTheme
               .titleLarge!
-              .copyWith(fontWeight: FontWeight.bold),
+              .copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: appModel.dictionaryHeadingFontSize,
+                color: Color(appModel.dictionaryFontColor),
+              ),
         ),
         Text(
           heading.reading,
-          style: Theme.of(context).textTheme.titleMedium,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Color(appModel.dictionaryFontColor),
+              ),
         ),
       ],
     );
