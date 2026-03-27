@@ -140,17 +140,7 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
         }
 
         if (mounted && appModel.isMediaOpen) {
-          if (appModelNoUpdate.isPlayerOrientationPortrait) {
-            SystemChrome.setPreferredOrientations([
-              DeviceOrientation.portraitUp,
-            ]);
-          } else {
-            SystemChrome.setPreferredOrientations([
-              DeviceOrientation.landscapeLeft,
-              DeviceOrientation.landscapeRight,
-            ]);
-          }
-
+          appModel.applyPlayerOrientation();
           Wakelock.enable();
         }
 
@@ -479,16 +469,7 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
     });
 
     if (mounted && appModel.isMediaOpen) {
-      if (appModelNoUpdate.isPlayerOrientationPortrait) {
-        await SystemChrome.setPreferredOrientations([
-          DeviceOrientation.portraitUp,
-        ]);
-      } else {
-        await SystemChrome.setPreferredOrientations([
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
-        ]);
-      }
+      await appModel.applyPlayerOrientation();
       await Wakelock.enable();
     }
 
@@ -2367,6 +2348,66 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
     );
   }
 
+  /// List of options when changing orientation mode.
+  List<JidoujishoBottomSheetOption> getOrientationOptions() {
+    return [
+      JidoujishoBottomSheetOption(
+        label: t.orientation_auto,
+        icon: Icons.screen_rotation,
+        active: appModel.playerOrientationMode == 'auto',
+        action: () async {
+          appModel.setPlayerOrientationMode('auto');
+          await _playerController.stop();
+          await appModel.openMedia(
+            ref: ref,
+            mediaSource: widget.source,
+            pushReplacement: true,
+            item: widget.item!.copyWith(
+              position: _positionNotifier.value.inSeconds,
+              duration: _durationNotifier.value.inSeconds,
+            ),
+          );
+        },
+      ),
+      JidoujishoBottomSheetOption(
+        label: t.orientation_landscape,
+        icon: Icons.stay_current_landscape,
+        active: appModel.playerOrientationMode == 'landscape',
+        action: () async {
+          appModel.setPlayerOrientationMode('landscape');
+          await _playerController.stop();
+          await appModel.openMedia(
+            ref: ref,
+            mediaSource: widget.source,
+            pushReplacement: true,
+            item: widget.item!.copyWith(
+              position: _positionNotifier.value.inSeconds,
+              duration: _durationNotifier.value.inSeconds,
+            ),
+          );
+        },
+      ),
+      JidoujishoBottomSheetOption(
+        label: t.orientation_portrait,
+        icon: Icons.stay_current_portrait,
+        active: appModel.playerOrientationMode == 'portrait',
+        action: () async {
+          appModel.setPlayerOrientationMode('portrait');
+          await _playerController.stop();
+          await appModel.openMedia(
+            ref: ref,
+            mediaSource: widget.source,
+            pushReplacement: true,
+            item: widget.item!.copyWith(
+              position: _positionNotifier.value.inSeconds,
+              duration: _durationNotifier.value.inSeconds,
+            ),
+          );
+        },
+      ),
+    ];
+  }
+
   /// List of options when changing playback modes.
   List<JidoujishoBottomSheetOption> getPlaybackModeOptions() {
     Map<PlaybackMode, String> playbackModeByLabel = {
@@ -2573,21 +2614,18 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
       ),
       JidoujishoBottomSheetOption(
         label: t.player_change_player_orientation,
-        icon: appModel.isPlayerOrientationPortrait
-            ? Icons.stay_current_landscape
-            : Icons.stay_current_portrait,
+        icon: appModel.playerOrientationMode == 'portrait'
+            ? Icons.stay_current_portrait
+            : appModel.playerOrientationMode == 'landscape'
+                ? Icons.stay_current_landscape
+                : Icons.screen_rotation,
         action: () async {
-          appModel.togglePlayerOrientationPortrait();
-
-          await _playerController.stop();
-
-          await appModel.openMedia(
-            ref: ref,
-            mediaSource: widget.source,
-            pushReplacement: true,
-            item: widget.item!.copyWith(
-              position: _positionNotifier.value.inSeconds,
-              duration: _durationNotifier.value.inSeconds,
+          await showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            useRootNavigator: true,
+            builder: (context) => JidoujishoBottomSheet(
+              options: getOrientationOptions(),
             ),
           );
         },

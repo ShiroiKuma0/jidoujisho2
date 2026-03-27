@@ -1,9 +1,9 @@
 /// Generated file. Do not edit.
 ///
 /// Locales: 1
-/// Strings: 417
+/// Strings: 420
 ///
-/// Built on 2026-03-26 at 19:53 UTC
+/// Built on 2026-03-27 at 07:40 UTC
 
 // coverage:ignore-file
 // ignore_for_file: type=lint
@@ -391,7 +391,10 @@ class _StringsEn implements BaseTranslations<AppLocale, _StringsEn> {
 	String get player_option_subtitle_always_above_bottom_bar => 'Always show subtitle above bottom bar area';
 	String get player_subtitles_transcript_empty => 'Transcript is empty.';
 	String get player_prepare_export => 'Preparing card...';
-	String get player_change_player_orientation => 'Change Player Orientation';
+	String get player_change_player_orientation => 'Player Orientation';
+	String get orientation_auto => 'Automatic (sensor)';
+	String get orientation_landscape => 'Landscape';
+	String get orientation_portrait => 'Portrait';
 	String get no_current_media => 'Play or refresh media for lyrics';
 	String get lyrics_permission_required => 'Required permission not granted';
 	String get no_lyrics_found => 'No lyrics found';
@@ -840,7 +843,10 @@ extension on _StringsEn {
 			case 'player_option_subtitle_always_above_bottom_bar': return 'Always show subtitle above bottom bar area';
 			case 'player_subtitles_transcript_empty': return 'Transcript is empty.';
 			case 'player_prepare_export': return 'Preparing card...';
-			case 'player_change_player_orientation': return 'Change Player Orientation';
+			case 'player_change_player_orientation': return 'Player Orientation';
+			case 'orientation_auto': return 'Automatic (sensor)';
+			case 'orientation_landscape': return 'Landscape';
+			case 'orientation_portrait': return 'Portrait';
 			case 'no_current_media': return 'Play or refresh media for lyrics';
 			case 'lyrics_permission_required': return 'Required permission not granted';
 			case 'no_lyrics_found': return 'No lyrics found';

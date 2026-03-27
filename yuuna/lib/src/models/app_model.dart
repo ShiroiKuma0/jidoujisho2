@@ -3487,15 +3487,39 @@ class AppModel with ChangeNotifier {
         !isPlayerListeningComprehensionMode);
   }
 
-  /// Get orientation for player.
-  bool get isPlayerOrientationPortrait {
-    return _preferences.get('player_orientation_portrait', defaultValue: false);
+  /// Get orientation mode for player: 'auto', 'landscape', 'portrait'.
+  String get playerOrientationMode {
+    return _preferences.get('player_orientation_mode', defaultValue: 'auto');
   }
 
-  /// Toggle orientation for player.
-  void togglePlayerOrientationPortrait() async {
-    await _preferences.put(
-        'player_orientation_portrait', !isPlayerOrientationPortrait);
+  /// Set orientation mode for player.
+  void setPlayerOrientationMode(String mode) async {
+    await _preferences.put('player_orientation_mode', mode);
+  }
+
+  /// Apply the current orientation mode.
+  Future<void> applyPlayerOrientation() async {
+    switch (playerOrientationMode) {
+      case 'portrait':
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+        ]);
+        break;
+      case 'landscape':
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+        break;
+      case 'auto':
+      default:
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+        break;
+    }
   }
 
   /// Get whether or not to stretch to fill screen.
