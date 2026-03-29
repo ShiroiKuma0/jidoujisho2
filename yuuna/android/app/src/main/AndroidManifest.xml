@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="app.arianneorpilla.yuuna">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
@@ -7,6 +8,7 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="白い熊の自動辞書第二版"
@@ -105,13 +107,7 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
-            <service android:name="slayer.accessibility.service.flutter_accessibility_service.AccessibilityListener"
-                    android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="false">
-        <intent-filter>
-            <action android:name="android.accessibilityservice.AccessibilityService" />
-        </intent-filter>
-        <meta-data android:name="android.accessibilityservice" android:resource="@xml/accessibilityservice" />
-        </service>
+
          <service android:name="com.ryanheise.audioservice.AudioService"
             android:foregroundServiceType="mediaPlayback"
             android:exported="true" tools:ignore="Instantiatable">
