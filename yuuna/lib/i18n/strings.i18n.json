@@ -442,6 +442,7 @@
     "video_file_error": "Cannot Load File",
     "video_file_error_content": "Unable to load the video file. Please ensure this file exists and is located in a directory accessible by the application.",
     "seek_control": "Seek Control",
+    "replay_subtitle": "Replay current subtitle",
     "player_option_volume_brightness": "Change Volume & Brightness",
     "player_option_volume_down": "Volume Down",
     "player_option_volume_up": "Volume Up",

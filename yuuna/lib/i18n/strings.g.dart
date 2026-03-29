@@ -1,9 +1,9 @@
 /// Generated file. Do not edit.
 ///
 /// Locales: 1
-/// Strings: 420
+/// Strings: 421
 ///
-/// Built on 2026-03-27 at 07:40 UTC
+/// Built on 2026-03-29 at 11:52 UTC
 
 // coverage:ignore-file
 // ignore_for_file: type=lint
@@ -553,6 +553,7 @@ class _StringsEn implements BaseTranslations<AppLocale, _StringsEn> {
 	String get video_file_error => 'Cannot Load File';
 	String get video_file_error_content => 'Unable to load the video file. Please ensure this file exists and is located in a directory accessible by the application.';
 	String get seek_control => 'Seek Control';
+	String get replay_subtitle => 'Replay current subtitle';
 	String get player_option_volume_brightness => 'Change Volume & Brightness';
 	String get player_option_volume_down => 'Volume Down';
 	String get player_option_volume_up => 'Volume Up';
@@ -1011,6 +1012,7 @@ extension on _StringsEn {
 			case 'video_file_error': return 'Cannot Load File';
 			case 'video_file_error_content': return 'Unable to load the video file. Please ensure this file exists and is located in a directory accessible by the application.';
 			case 'seek_control': return 'Seek Control';
+			case 'replay_subtitle': return 'Replay current subtitle';
 			case 'player_option_volume_brightness': return 'Change Volume & Brightness';
 			case 'player_option_volume_down': return 'Volume Down';
 			case 'player_option_volume_up': return 'Volume Up';

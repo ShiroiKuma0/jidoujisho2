@@ -545,6 +545,7 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
   double _lastAspectRatio = 1;
 
   Subtitle? _autoPauseMemory;
+  Duration? _replayEndPosition;
   bool _lastPlayingState = true;
 
   /// This is called each time the player ticks.
@@ -566,6 +567,22 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
       _durationNotifier.value = _playerController.value.duration;
       _playingNotifier.value = _playerController.value.isPlaying;
       _endedNotifier.value = _playerController.value.isEnded;
+
+      // Show menu bar whenever playback pauses
+      if (!_playingNotifier.value && _lastPlayingState) {
+        _menuHideTimer?.cancel();
+        _isMenuHidden.value = false;
+      }
+
+      // Replay boundary: pause and bail out before subtitle logic runs
+      if (_replayEndPosition != null &&
+          _playerController.value.isPlaying &&
+          _positionNotifier.value >= _replayEndPosition!) {
+        _replayEndPosition = null;
+        await _playerController.pause();
+        _session.setActive(false);
+        return;
+      }
 
       if (_playerController.value.aspectRatio != _lastAspectRatio) {
         _lastAspectRatio = _playerController.value.aspectRatio;
@@ -1028,6 +1045,19 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
     }
   }
 
+  Future<void> replayCurrentSubtitle() async {
+    Subtitle? nearestSubtitle = getNearestSubtitle();
+
+    if (nearestSubtitle != null) {
+      _replayEndPosition = nearestSubtitle.end;
+      _playerController.setTime(nearestSubtitle.start.inMilliseconds);
+      if (!_playerController.value.isPlaying) {
+        await _playerController.play();
+        _session.setActive(true);
+      }
+    }
+  }
+
   Future<void> openTranscript() async {
     clearDictionaryResult();
 
@@ -1260,6 +1290,7 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
               children: [
                 const Space.small(),
                 buildPrevSubtitleSeekButton(),
+                buildReplaySubtitleButton(),
                 buildPlayButton(),
                 buildNextSubtitleSeekButton(),
                 buildDurationAndPosition(),
@@ -1285,6 +1316,21 @@ class _PlayerSourcePageState extends BaseSourcePageState<PlayerSourcePage>
         tooltip: t.seek_control,
         onTap: () async {
           seekPrevSubtitle();
+        },
+      ),
+    );
+  }
+
+  /// This shows the Replay Current Subtitle button.
+  Widget buildReplaySubtitleButton() {
+    return Material(
+      color: Colors.transparent,
+      child: JidoujishoIconButton(
+        size: 24,
+        icon: Icons.replay,
+        tooltip: t.replay_subtitle,
+        onTap: () async {
+          replayCurrentSubtitle();
         },
       ),
     );
