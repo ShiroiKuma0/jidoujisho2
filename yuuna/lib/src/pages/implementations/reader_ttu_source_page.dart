@@ -365,6 +365,31 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
                 })();
               ''');
             }
+            // Always reset lastBookOpen=0 for translation books
+            await controller.evaluateJavascript(source: '''
+              (async function() {
+                try {
+                  var req = indexedDB.open('books');
+                  req.onsuccess = function() {
+                    var db = req.result;
+                    var tx = db.transaction('data', 'readwrite');
+                    var store = tx.objectStore('data');
+                    var all = store.openCursor();
+                    all.onsuccess = function() {
+                      var cursor = all.result;
+                      if (cursor) {
+                        var book = cursor.value;
+                        if (book.title && book.title.includes('⇨') && book.lastBookOpen !== 0) {
+                          book.lastBookOpen = 0;
+                          cursor.update(book);
+                        }
+                        cursor.continue();
+                      }
+                    };
+                  };
+                } catch(e) {}
+              })();
+            ''');
           }
         }
         if (mounted) setState(() {});

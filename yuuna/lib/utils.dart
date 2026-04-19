@@ -41,3 +41,4 @@ export 'src/utils/misc/mokuro_payload.dart';
 export 'src/utils/misc/dialog_content.dart';
 export 'src/utils/misc/browser_bookmark.dart';
 export 'src/utils/components/reader_audio_toolbar.dart';
+export 'src/utils/misc/app_backup_restore.dart';

@@ -395,6 +395,22 @@ class _HomePageState extends BasePageState<HomePage>
         action: browseToGithub,
       ),
       buildPopupItem(
+        label: 'Backup data',
+        icon: Icons.backup,
+        action: () => AppBackupRestore.createBackup(
+          appModel: appModel,
+          context: context,
+        ),
+      ),
+      buildPopupItem(
+        label: 'Restore data',
+        icon: Icons.restore,
+        action: () => AppBackupRestore.restoreBackup(
+          appModel: appModel,
+          context: context,
+        ),
+      ),
+      buildPopupItem(
         label: t.options_attribution,
         icon: Icons.info,
         action: navigateToLicensePage,
