@@ -8,3 +8,4 @@ export 'src/language/implementations/polish_language.dart';
 export 'src/language/implementations/russian_language.dart';
 export 'src/language/implementations/ukrainian_language.dart';
 export 'src/language/implementations/czech_language.dart';
+export 'src/language/implementations/custom_language.dart';

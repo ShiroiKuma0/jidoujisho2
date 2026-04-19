@@ -51,6 +51,25 @@ class _LanguageDialogPageState extends BasePageState<LanguageDialogPage> {
     );
   }
 
+  void _showCustomLanguageDialog() async {
+    final result = await showDialog<CustomLanguage>(
+      context: context,
+      builder: (ctx) => _CustomLanguageConfigDialog(
+        existing: appModel.targetLanguage is CustomLanguage
+            ? appModel.targetLanguage as CustomLanguage
+            : null,
+      ),
+    );
+    if (result != null) {
+      await CustomLanguage.saveConfig(
+          appModel.preferences, result);
+      appModel.populateLanguages();
+      appModel.setTargetLanguage(result);
+      appModel.clearDictionaryResultsCache();
+      if (mounted) setState(() {});
+    }
+  }
+
   Widget buildContent() {
     ScrollController contentController = ScrollController();
 
@@ -94,6 +113,14 @@ class _LanguageDialogPageState extends BasePageState<LanguageDialogPage> {
                   appModel.clearDictionaryResultsCache();
                   setState(() {});
                 },
+              ),
+              const Space.small(),
+              Center(
+                child: TextButton.icon(
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add custom language'),
+                  onPressed: _showCustomLanguageDialog,
+                ),
               ),
               const Space.small(),
               Padding(
@@ -147,6 +174,220 @@ class _LanguageDialogPageState extends BasePageState<LanguageDialogPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Dialog for configuring a custom language.
+class _CustomLanguageConfigDialog extends StatefulWidget {
+  const _CustomLanguageConfigDialog({this.existing});
+  final CustomLanguage? existing;
+
+  @override
+  State<_CustomLanguageConfigDialog> createState() =>
+      _CustomLanguageConfigDialogState();
+}
+
+class _CustomLanguageConfigDialogState
+    extends State<_CustomLanguageConfigDialog> {
+  late TextEditingController _nameCtrl;
+  late TextEditingController _codeCtrl;
+  late TextEditingController _countryCtrl;
+  late TextEditingController _threeCtrl;
+  late TextEditingController _helloCtrl;
+  late TextEditingController _fontCtrl;
+  bool _rtl = false;
+  bool _vertical = false;
+  bool _spaceDelimited = true;
+  bool _ideographic = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.existing;
+    _nameCtrl = TextEditingController(text: e?.languageName ?? '');
+    _codeCtrl = TextEditingController(text: e?.languageCode ?? '');
+    _countryCtrl = TextEditingController(text: e?.countryCode ?? '');
+    _threeCtrl = TextEditingController(text: e?.threeLetterCode ?? '');
+    _helloCtrl = TextEditingController(text: e?.helloWorld ?? '');
+    _fontCtrl = TextEditingController(
+        text: e?.defaultFontFamily ?? 'Roboto');
+    if (e != null) {
+      _rtl = e.textDirection == TextDirection.rtl;
+      _vertical = e.preferVerticalReading;
+      _spaceDelimited = e.isSpaceDelimited;
+      _ideographic = e.textBaseline == TextBaseline.ideographic;
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _codeCtrl.dispose();
+    _countryCtrl.dispose();
+    _threeCtrl.dispose();
+    _helloCtrl.dispose();
+    _fontCtrl.dispose();
+    super.dispose();
+  }
+
+  void _applyPreset(LanguagePreset p) {
+    setState(() {
+      _nameCtrl.text = p.name.split('(').last.replaceAll(')', '').trim();
+      _codeCtrl.text = p.code;
+      _countryCtrl.text = p.country;
+      _threeCtrl.text = p.threeLetterCode;
+      _helloCtrl.text = p.hello;
+      _fontCtrl.text = p.font;
+      _rtl = p.rtl;
+      _vertical = p.vertical;
+      _spaceDelimited = p.spaceDelimited;
+      _ideographic = p.ideographic;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Custom language'),
+      content: SizedBox(
+        width: MediaQuery.of(context).size.width * 0.85,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Preset picker
+              DropdownButton<LanguagePreset>(
+                isExpanded: true,
+                hint: const Text('Load from preset...'),
+                items: LanguagePreset.presets
+                    .map((p) => DropdownMenuItem(
+                        value: p, child: Text(p.name, overflow: TextOverflow.ellipsis)))
+                    .toList(),
+                onChanged: (p) {
+                  if (p != null) _applyPreset(p);
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Language name',
+                  helperText: 'e.g. Français, Español',
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(
+                  child: TextField(
+                    controller: _codeCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'ISO 639-1',
+                      helperText: 'e.g. fr, es',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _countryCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Country',
+                      helperText: 'e.g. FR, ES',
+                    ),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(
+                  child: TextField(
+                    controller: _threeCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'ISO 639-3',
+                      helperText: 'e.g. fra, spa',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _fontCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Default font',
+                      helperText: 'e.g. Roboto',
+                    ),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _helloCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Test text',
+                  helperText: 'e.g. Hello world',
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Boolean toggles
+              _toggle('Right-to-left', _rtl, (v) => setState(() => _rtl = v)),
+              _toggle('Prefer vertical reading', _vertical,
+                  (v) => setState(() => _vertical = v)),
+              _toggle('Space-delimited', _spaceDelimited,
+                  (v) => setState(() => _spaceDelimited = v)),
+              _toggle('Ideographic baseline', _ideographic,
+                  (v) => setState(() => _ideographic = v)),
+              const SizedBox(height: 8),
+              Text(
+                'Locale: ${_codeCtrl.text}-${_countryCtrl.text}',
+                style: TextStyle(
+                    fontSize: 12, color: Theme.of(context).hintColor),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            if (_nameCtrl.text.trim().isEmpty ||
+                _codeCtrl.text.trim().isEmpty) {
+              return;
+            }
+            final lang = CustomLanguage(
+              languageName: _nameCtrl.text.trim(),
+              languageCode: _codeCtrl.text.trim().toLowerCase(),
+              countryCode: _countryCtrl.text.trim().toUpperCase(),
+              threeLetterCode: _threeCtrl.text.trim().toLowerCase(),
+              textDirection: _rtl ? TextDirection.rtl : TextDirection.ltr,
+              preferVerticalReading: _vertical,
+              isSpaceDelimited: _spaceDelimited,
+              textBaseline: _ideographic
+                  ? TextBaseline.ideographic
+                  : TextBaseline.alphabetic,
+              helloWorld: _helloCtrl.text.trim(),
+              defaultFontFamily: _fontCtrl.text.trim(),
+            );
+            Navigator.pop(context, lang);
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  Widget _toggle(String label, bool value, ValueChanged<bool> onChanged) {
+    return SwitchListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      title: Text(label, style: const TextStyle(fontSize: 13)),
+      value: value,
+      onChanged: onChanged,
     );
   }
 }

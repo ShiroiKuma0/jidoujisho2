@@ -141,6 +141,9 @@ class AppModel with ChangeNotifier {
   /// Used for accessing persistent key-value data. See [initialise].
   late final Box _preferences;
 
+  /// Public access to preferences box for custom language config.
+  Box get preferences => _preferences;
+
   /// Used for accessing persistent dictonary history. See [initialise].
   late final Box<int> _dictionaryHistory;
 
@@ -239,7 +242,7 @@ class AppModel with ChangeNotifier {
 
   /// Used to fetch a language by its locale tag with constant time performance.
   /// Initialised with [populateLanguages] at startup.
-  late final Map<String, Language> languages;
+  late Map<String, Language> languages;
 
   /// Used to fetch an app locale by its locale tag with constant time
   /// performance. Initialised with [populateLocales] at startup.
@@ -752,23 +755,25 @@ class AppModel with ChangeNotifier {
   /// Populate maps for languages at startup to optimise performance.
   void populateLanguages() async {
     /// A list of languages that the app will support at runtime.
-    final List<Language> availableLanguages = List<Language>.unmodifiable(
-      [
-        JapaneseLanguage.instance,
-        EnglishLanguage.instance,
-        GermanLanguage.instance,
-        PolishLanguage.instance,
-        RussianLanguage.instance,
-        UkrainianLanguage.instance,
-        CzechLanguage.instance,
-      ],
-    );
+    final List<Language> availableLanguages = [
+      JapaneseLanguage.instance,
+      EnglishLanguage.instance,
+      GermanLanguage.instance,
+      PolishLanguage.instance,
+      RussianLanguage.instance,
+      UkrainianLanguage.instance,
+      CzechLanguage.instance,
+    ];
 
-    languages = Map<String, Language>.unmodifiable(
-      Map<String, Language>.fromEntries(
-        availableLanguages.map(
-          (language) => MapEntry(language.locale.toLanguageTag(), language),
-        ),
+    // Load custom language if configured
+    CustomLanguage? custom = CustomLanguage.loadConfig(_preferences);
+    if (custom != null) {
+      availableLanguages.add(custom);
+    }
+
+    languages = Map<String, Language>.fromEntries(
+      availableLanguages.map(
+        (language) => MapEntry(language.locale.toLanguageTag(), language),
       ),
     );
   }
@@ -1345,7 +1350,7 @@ class AppModel with ChangeNotifier {
     String localeTag =
         _preferences.get('target_language', defaultValue: defaultLocaleTag);
 
-    return languages[localeTag]!;
+    return languages[localeTag] ?? languages.values.first;
   }
 
   /// Get the last selected deck from persisted preferences.
