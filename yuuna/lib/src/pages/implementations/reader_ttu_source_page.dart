@@ -52,11 +52,21 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
   late Box _readerBox;
   InAppWebViewController? _secondaryController;
 
+  // Edge gesture state
+  static const _volumeChannel =
+      MethodChannel('app.arianneorpilla.yuuna/volume');
+  double _gestureVolume = 0.5;
+  double _gestureMaxVolume = 15;
+  double _gestureFontSize = 20;
+  bool _showVolumeIndicator = false;
+  bool _showFontSizeIndicator = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initSecondaryBook();
+    _initGestureVolume();
   }
 
   Future<void> _initSecondaryBook() async {
@@ -73,6 +83,140 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
   String _safeBookKey() {
     String k = widget.item?.uniqueKey ?? 'default';
     return k.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+  }
+
+  Future<void> _initGestureVolume() async {
+    try {
+      final result = await _volumeChannel.invokeMethod('getVolume');
+      if (result is List) {
+        _gestureVolume = (result[0] as num).toDouble();
+        _gestureMaxVolume = (result[1] as num).toDouble();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _initGestureFontSize() async {
+    try {
+      final raw = await _controller.evaluateJavascript(
+          source: 'window.localStorage.getItem("fontSize") || "20"');
+      String cleaned = raw.toString().replaceAll('"', '');
+      _gestureFontSize = double.tryParse(cleaned) ?? 20;
+    } catch (_) {}
+  }
+
+  void _onEdgeVerticalDragUpdate(DragUpdateDetails d, bool isRight) {
+    double delta = -d.delta.dy;
+    if (isRight) {
+      // Volume: map drag to volume steps
+      double step = delta / 8;
+      _gestureVolume = (_gestureVolume + step).clamp(0, _gestureMaxVolume);
+      _volumeChannel.invokeMethod(
+          'setVolume', {'level': _gestureVolume.round()});
+      setState(() => _showVolumeIndicator = true);
+    } else {
+      // Font size: map drag to font size
+      double step = delta / 12;
+      _gestureFontSize = (_gestureFontSize + step).clamp(8, 60);
+      _controller.evaluateJavascript(
+          source:
+              'window.localStorage.setItem("fontSize", "${_gestureFontSize.round()}")');
+      _controller.evaluateJavascript(
+          source:
+              'document.querySelector(".book-content").style.fontSize = "${_gestureFontSize.round()}px"');
+      setState(() => _showFontSizeIndicator = true);
+    }
+  }
+
+  void _onEdgeVerticalDragEnd(bool isRight) {
+    if (isRight) {
+      Future.delayed(const Duration(milliseconds: 600),
+          () { if (mounted) setState(() => _showVolumeIndicator = false); });
+    } else {
+      Future.delayed(const Duration(milliseconds: 600),
+          () { if (mounted) setState(() => _showFontSizeIndicator = false); });
+    }
+  }
+
+  Widget _buildEdgeGestures(Widget child) {
+    return Stack(
+      children: [
+        child,
+        // Left edge — font size
+        Positioned(
+          left: 0, top: 0, bottom: 0,
+          width: MediaQuery.of(context).size.width * 0.15,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onVerticalDragUpdate: (d) => _onEdgeVerticalDragUpdate(d, false),
+            onVerticalDragEnd: (_) => _onEdgeVerticalDragEnd(false),
+          ),
+        ),
+        // Right edge — volume
+        Positioned(
+          right: 0, top: 0, bottom: 0,
+          width: MediaQuery.of(context).size.width * 0.15,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onVerticalDragUpdate: (d) => _onEdgeVerticalDragUpdate(d, true),
+            onVerticalDragEnd: (_) => _onEdgeVerticalDragEnd(true),
+          ),
+        ),
+        // Volume indicator
+        if (_showVolumeIndicator)
+          Positioned(
+            right: 20, top: 0, bottom: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.volume_up,
+                        color: Color(0xFFFFFF00), size: 28),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${(_gestureVolume / _gestureMaxVolume * 100).round()}%',
+                      style: const TextStyle(
+                          color: Color(0xFFFFFF00), fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        // Font size indicator
+        if (_showFontSizeIndicator)
+          Positioned(
+            left: 20, top: 0, bottom: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.format_size,
+                        color: Color(0xFFFFFF00), size: 28),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${_gestureFontSize.round()}px',
+                      style: const TextStyle(
+                          color: Color(0xFFFFFF00), fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   @override
@@ -214,7 +358,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         ref.watch(ttuServerProvider(appModel.targetLanguage));
 
     return server.when(
-      data: (srv) => _buildSplitView(srv),
+      data: (srv) => _buildEdgeGestures(_buildSplitView(srv)),
       loading: buildLoading,
       error: (error, stack) => buildError(
         error: error,
@@ -683,6 +827,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         await _injectUiTheme(controller);
         await _injectIdbPatch(controller);
         _applyReaderSettings();
+        _initGestureFontSize();
         Future.delayed(const Duration(seconds: 1), _focusNode.requestFocus);
       },
       onTitleChanged: (controller, title) async {

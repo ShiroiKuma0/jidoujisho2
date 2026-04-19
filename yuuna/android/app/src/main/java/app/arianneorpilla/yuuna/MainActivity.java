@@ -10,6 +10,8 @@ import android.os.Looper;
 import androidx.annotation.NonNull;
 import android.net.Uri;
 
+import android.media.AudioManager;
+
 import io.flutter.embedding.engine.FlutterEngine;
 import io.flutter.plugin.common.MethodChannel;
 
@@ -226,6 +228,27 @@ public class MainActivity extends AudioServiceActivity {
 
                             result.success(new File(returnUri.getPath()).toString().substring(1));
 
+                            break;
+                        default:
+                            result.notImplemented();
+                    }
+                }
+            );
+
+        new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), "app.arianneorpilla.yuuna/volume")
+            .setMethodCallHandler(
+                (call, result) -> {
+                    AudioManager audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+                    switch (call.method) {
+                        case "getVolume":
+                            int vol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+                            int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+                            result.success(new double[]{(double) vol, (double) maxVol});
+                            break;
+                        case "setVolume":
+                            int level = call.argument("level");
+                            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, level, 0);
+                            result.success(true);
                             break;
                         default:
                             result.notImplemented();
