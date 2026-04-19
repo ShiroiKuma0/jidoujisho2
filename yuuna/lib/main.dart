@@ -404,12 +404,11 @@ class JidoujishoLocalizationsDelegate
   const JidoujishoLocalizationsDelegate();
   @override
   bool isSupported(Locale locale) {
-    return locale == const Locale('en', 'US');
+    return true;
   }
 
   @override
   Future<JidoujishoLocalizations> load(Locale locale) {
-    assert(locale == const Locale('en', 'US'), 'Locale must be supported.');
     return SynchronousFuture<JidoujishoLocalizations>(
         JidoujishoLocalizations());
   }

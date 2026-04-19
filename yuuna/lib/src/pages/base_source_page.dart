@@ -339,6 +339,18 @@ class BaseSourcePageState<T extends BaseSourcePage> extends BasePageState<T> {
     );
   }
 
+  /// Open editable dictionary search with the current search term.
+  void showEditSearchDialog() {
+    String prefill = '';
+    if (_lastSearchTerm != null) {
+      prefill = _lastSearchTerm!.split(RegExp(r'\s+')).first;
+    }
+
+    if (prefill.isNotEmpty) {
+      onSearch(prefill);
+    }
+  }
+
   /// Executed on dictionary dismiss.
   void onDictionaryDismiss() {
     clearDictionaryResult();
@@ -406,16 +418,36 @@ class BaseSourcePageState<T extends BaseSourcePage> extends BasePageState<T> {
           return buildNoSearchResultsPlaceholderMessage();
         }
 
-        return DictionaryResultPage(
-          scrollController: resultScrollController,
-          cardColor: appModel.overrideDictionaryColor,
-          opacity: dictionaryEntryOpacity,
-          onSearch: onSearch,
-          onStash: onStash,
-          onShare: onShare,
-          result: _dictionaryResultNotifier.value!,
-          spaceBeforeFirstResult: false,
-          footerWidget: footerWidget,
+        return Column(
+          children: [
+            Align(
+              alignment: Alignment.center,
+              child: GestureDetector(
+                onTap: showEditSearchDialog,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 4, bottom: 2),
+                  child: Icon(
+                    Icons.edit,
+                    size: 14,
+                    color: Theme.of(context).unselectedWidgetColor,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: DictionaryResultPage(
+                scrollController: resultScrollController,
+                cardColor: appModel.overrideDictionaryColor,
+                opacity: dictionaryEntryOpacity,
+                onSearch: onSearch,
+                onStash: onStash,
+                onShare: onShare,
+                result: _dictionaryResultNotifier.value!,
+                spaceBeforeFirstResult: false,
+                footerWidget: footerWidget,
+              ),
+            ),
+          ],
         );
       },
     );
@@ -470,9 +502,20 @@ class BaseSourcePageState<T extends BaseSourcePage> extends BasePageState<T> {
   /// Placeholder when there are no search results.
   Widget buildNoSearchResultsPlaceholderMessage() {
     return Center(
-      child: JidoujishoPlaceholderMessage(
-        icon: Icons.search_off,
-        message: t.no_search_results,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          JidoujishoPlaceholderMessage(
+            icon: Icons.search_off,
+            message: t.no_search_results,
+          ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            icon: const Icon(Icons.edit, size: 16),
+            label: Text(t.edit_search_term),
+            onPressed: showEditSearchDialog,
+          ),
+        ],
       ),
     );
   }

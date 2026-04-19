@@ -78,7 +78,7 @@ const v = [
   "/manage/__data.json",
   "/settings.html",
   "/settings/__data.json"
-], g = "1682741589948", k = {}.VITE_PAGE_PATH || "";
+], g = "1682741589949", k = {}.VITE_PAGE_PATH || "";
 function x(e) {
   return Object.entries(e).map(([s, n]) => `${encodeURIComponent(s)}=${encodeURIComponent(n)}`).join("&");
 }

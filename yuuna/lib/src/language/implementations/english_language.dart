@@ -209,7 +209,7 @@ Future<int?> prepareSearchResultsEnglishLanguage(
       String partialTerm = segments
           .sublist(0, segments.length - i)
           .join()
-          .replaceAll(RegExp('[^a-zA-Z -]'), '');
+          .replaceAll(RegExp(r'[^\p{L}\p{M} -]', unicode: true), '');
 
       if (partialTerm.endsWith(' ')) {
         continue;

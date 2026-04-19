@@ -262,6 +262,23 @@ class _DictionaryDialogPageState extends BasePageState with ChangeNotifier {
                     child: buildDictionaryList(dictionaries),
                   ),
                 const JidoujishoDivider(),
+                Padding(
+                  padding: Spacing.of(context).insets.onlyLeft.small,
+                  child: Row(
+                    children: [
+                      Icon(Icons.language,
+                          size: 14, color: theme.unselectedWidgetColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        t.import_for_language(language: appModel.targetLanguage.languageName),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.unselectedWidgetColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 buildImportDropdown(),
               ],
             ),

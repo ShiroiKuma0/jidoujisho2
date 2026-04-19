@@ -90,7 +90,8 @@ class ReaderTtuSource extends ReaderMediaSource {
       return 52060;
     }
 
-    throw UnimplementedError();
+    // Generate a stable port from the language code to avoid conflicts
+    return 52060 + language.languageCode.hashCode.abs() % 1000;
   }
 
   /// Used to delay the serve if the server failed to launch last time. Makes

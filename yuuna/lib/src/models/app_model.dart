@@ -756,6 +756,11 @@ class AppModel with ChangeNotifier {
       [
         JapaneseLanguage.instance,
         EnglishLanguage.instance,
+        GermanLanguage.instance,
+        PolishLanguage.instance,
+        RussianLanguage.instance,
+        UkrainianLanguage.instance,
+        CzechLanguage.instance,
       ],
     );
 
@@ -1269,6 +1274,35 @@ class AppModel with ChangeNotifier {
       maxSizeMiB: 8192,
     );
 
+    /// Ensure dictionaries imported with auto-hide are also hidden for
+    /// any languages added after the dictionary was imported.
+    List<String> allCodes =
+        languages.values.map((l) => l.languageCode).toList();
+    for (Dictionary dict
+        in _database.dictionarys.where().findAllSync()) {
+      if (dict.hiddenLanguages.isNotEmpty) {
+        Set<String> hidden = dict.hiddenLanguages.toSet();
+        // The import language is the first registered language not hidden
+        String? importLanguage;
+        for (String code in allCodes) {
+          if (!hidden.contains(code)) {
+            importLanguage = code;
+            break;
+          }
+        }
+        if (importLanguage != null) {
+          List<String> newHidden =
+              allCodes.where((code) => code != importLanguage).toList();
+          if (newHidden.length > dict.hiddenLanguages.length) {
+            dict.hiddenLanguages = newHidden;
+            _database.writeTxnSync(() {
+              _database.dictionarys.putSync(dict);
+            });
+          }
+        }
+      }
+    }
+
     /// Preloads the search database in memory.
     searchDictionary(
       searchTerm: targetLanguage.helloWorld,
@@ -1567,11 +1601,17 @@ class AppModel with ChangeNotifier {
 
       int order = (bottomMostDictionary?.order ?? 0) + 1;
 
+      List<String> otherLanguageCodes = languages.values
+          .where((lang) => lang.languageCode != targetLanguage.languageCode)
+          .map((lang) => lang.languageCode)
+          .toList();
+
       Dictionary dictionary = Dictionary(
         id: id,
         order: order,
         name: name,
         formatKey: dictionaryFormat.uniqueKey,
+        hiddenLanguages: otherLanguageCodes,
       );
 
       PrepareDictionaryParams prepareDictionaryParams = PrepareDictionaryParams(
