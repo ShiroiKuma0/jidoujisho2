@@ -202,6 +202,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
             onToggleSecondary: _toggleSecondary,
             onOpenSecondaryManager: _openSecondaryManager,
             onRemoveSecondary: _removeSecondary,
+            onSettingsChanged: _applyReaderSettings,
           ),
         ),
       ),
@@ -300,15 +301,14 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
       onLoadStop: (controller, uri) async {
         await controller.evaluateJavascript(
             source: 'window.localStorage.setItem("autoBookmark", "1")');
-        await controller.evaluateJavascript(
-            source:
-                'if(!document.getElementById("ttu-margin-fix")){var s=document.createElement("style");s.id="ttu-margin-fix";s.textContent=".py-8{padding-top:0!important;padding-bottom:0!important}.px-4{padding-left:0!important;padding-right:0!important}.md\\\\:px-8{padding-left:0!important;padding-right:0!important}";document.head.appendChild(s)}');
+        await _injectUiTheme(controller);
+        await _injectIdbPatch(controller);
+        _applyReaderSettings();
       },
       onTitleChanged: (controller, title) async {
-        // Re-inject margins on SPA navigation
-        await controller.evaluateJavascript(
-            source:
-                'if(!document.getElementById("ttu-margin-fix")){var s=document.createElement("style");s.id="ttu-margin-fix";s.textContent=".py-8{padding-top:0!important;padding-bottom:0!important}.px-4{padding-left:0!important;padding-right:0!important}.md\\\\:px-8{padding-left:0!important;padding-right:0!important}";document.head.appendChild(s)}');
+        await _injectUiTheme(controller);
+        await _injectIdbPatch(controller);
+        _applyReaderSettings();
         WebUri? uri = await controller.getUrl();
         if (uri == null) return;
         String rawUrl = uri.toString();
@@ -326,6 +326,10 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         if (title != null && title.isNotEmpty) {
           String bookName = title.split(' | ').first;
           if (bookName.isNotEmpty && bookName != 'ッツ Ebook Reader') {
+            // If already renamed (contains ⇨), extract the translation part
+            if (bookName.contains('⇨')) {
+              bookName = bookName.split('⇨').last.trim();
+            }
             String mainTitle = widget.item?.title ?? '';
             String formattedTitle = mainTitle.isNotEmpty
                 ? '$mainTitle ⇨ $bookName'
@@ -365,31 +369,6 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
                 })();
               ''');
             }
-            // Always reset lastBookOpen=0 for translation books
-            await controller.evaluateJavascript(source: '''
-              (async function() {
-                try {
-                  var req = indexedDB.open('books');
-                  req.onsuccess = function() {
-                    var db = req.result;
-                    var tx = db.transaction('data', 'readwrite');
-                    var store = tx.objectStore('data');
-                    var all = store.openCursor();
-                    all.onsuccess = function() {
-                      var cursor = all.result;
-                      if (cursor) {
-                        var book = cursor.value;
-                        if (book.title && book.title.includes('⇨') && book.lastBookOpen !== 0) {
-                          book.lastBookOpen = 0;
-                          cursor.update(book);
-                        }
-                        cursor.continue();
-                      }
-                    };
-                  };
-                } catch(e) {}
-              })();
-            ''');
           }
         }
         if (mounted) setState(() {});
@@ -423,6 +402,92 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     _secondaryController = null;
     setState(() {});
   }
+
+  /// Apply per-book reader appearance settings via CSS injection.
+  void _applyReaderSettings() async {
+    String key = _safeBookKey();
+    ReaderAppearanceSettings settings =
+        ReaderAppearanceSettings.load(_readerBox, key);
+    String css = settings.toCss().replaceAll('\n', ' ');
+    String js = '''
+      (function() {
+        var el = document.getElementById('reader-appearance');
+        if (el) el.remove();
+        var s = document.createElement('style');
+        s.id = 'reader-appearance';
+        s.textContent = ${_escapeJsString(css)};
+        document.head.appendChild(s);
+      })();
+    ''';
+    await _controller.evaluateJavascript(source: js);
+    if (_secondaryController != null) {
+      await _secondaryController!.evaluateJavascript(source: js);
+    }
+  }
+
+  /// CSS to restyle the ッツ reader UI as yellow-on-black.
+  static const String _uiThemeCss = '''
+    body, html { background-color: #000 !important; color: #FFFF00 !important; }
+    * { border-color: #333 !important; }
+    button, select, input, textarea {
+      background-color: #111 !important;
+      color: #FFFF00 !important;
+      border-color: #555 !important;
+    }
+    a { color: #FFFF00 !important; }
+    .bg-gray-700, .bg-gray-800, .bg-gray-900,
+    [class*="bg-gray"] { background-color: #111 !important; color: #FFFF00 !important; }
+    .text-gray-500, .text-gray-400, .text-gray-300,
+    [class*="text-gray"] { color: #FFFF00 !important; }
+    .border-b-gray-200, [class*="border"] { border-color: #333 !important; }
+    svg { fill: #FFFF00 !important; color: #FFFF00 !important; }
+    .elevation-4 { background-color: #111 !important; }
+    dialog, [role="dialog"] { background-color: #111 !important; color: #FFFF00 !important; }
+    ::-webkit-scrollbar { background: #000 !important; }
+    ::-webkit-scrollbar-thumb { background: #555 !important; }
+  ''';
+
+  /// Inject the yellow-on-black UI theme CSS.
+  Future<void> _injectUiTheme(InAppWebViewController controller) async {
+    String css = _uiThemeCss.replaceAll('\n', ' ');
+    String js = '''
+      (function() {
+        var el = document.getElementById('ttu-ui-theme');
+        if (el) el.remove();
+        var s = document.createElement('style');
+        s.id = 'ttu-ui-theme';
+        s.textContent = ${_escapeJsString(css)};
+        document.head.appendChild(s);
+      })();
+    ''';
+    await controller.evaluateJavascript(source: js);
+  }
+
+  static String _escapeJsString(String s) {
+    return "'${s.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'";
+  }
+
+  /// Monkey-patch IndexedDB.put to force lastBookOpen=0 for translation books.
+  static const String _idbPatchJs = '''
+    (function() {
+      if (window.__ttuPatchApplied) return;
+      window.__ttuPatchApplied = true;
+      var origPut = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function(value) {
+        if (value && value.title && typeof value.title === 'string'
+            && value.title.includes('⇨')) {
+          value.lastBookOpen = 0;
+        }
+        return origPut.apply(this, arguments);
+      };
+    })();
+  ''';
+
+  /// Inject the IndexedDB patch into a WebView controller.
+  Future<void> _injectIdbPatch(InAppWebViewController controller) async {
+    await controller.evaluateJavascript(source: _idbPatchJs);
+  }
+
 
   void setDictionaryColors() async {
     String currentTheme = (await _controller.evaluateJavascript(
@@ -615,9 +680,9 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         await controller.evaluateJavascript(
             source:
                 'window.localStorage.setItem("autoBookmark", "1")');
-        await controller.evaluateJavascript(
-            source:
-                'var s=document.createElement("style");s.textContent=".py-8{padding-top:0!important;padding-bottom:0!important}.px-4{padding-left:0!important;padding-right:0!important}.md\\\\:px-8{padding-left:0!important;padding-right:0!important}";document.head.appendChild(s)');
+        await _injectUiTheme(controller);
+        await _injectIdbPatch(controller);
+        _applyReaderSettings();
         Future.delayed(const Duration(seconds: 1), _focusNode.requestFocus);
       },
       onTitleChanged: (controller, title) async {
@@ -626,6 +691,9 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         if (mediaSource.adaptTtuTheme) {
           setDictionaryColors();
         }
+        await _injectUiTheme(controller);
+        await _injectIdbPatch(controller);
+        _applyReaderSettings();
       },
       onDownloadStartRequest: onDownloadStartRequest,
     );

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:multi_value_listenable_builder/multi_value_listenable_builder.dart';
@@ -19,6 +20,7 @@ class ReaderAudioToolbar extends StatefulWidget {
     this.onToggleSecondary,
     this.onOpenSecondaryManager,
     this.onRemoveSecondary,
+    this.onSettingsChanged,
     this.secondaryShown = false,
     this.hasSecondary = false,
     this.secondaryTitle,
@@ -30,6 +32,7 @@ class ReaderAudioToolbar extends StatefulWidget {
   final VoidCallback? onToggleSecondary;
   final VoidCallback? onOpenSecondaryManager;
   final VoidCallback? onRemoveSecondary;
+  final VoidCallback? onSettingsChanged;
   final bool secondaryShown;
   final bool hasSecondary;
   final String? secondaryTitle;
@@ -369,6 +372,14 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
               ),
             const Divider(),
             ListTile(
+              leading: const Icon(Icons.palette),
+              title: const Text('Reader appearance'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showReaderSettings();
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.menu_book),
               title: Text(widget.hasSecondary
                   ? (widget.secondaryTitle ?? 'Translation book')
@@ -423,6 +434,24 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
     );
   }
 
+  void _showReaderSettings() async {
+    String key = _safeKey(widget.bookKey);
+    ReaderAppearanceSettings current =
+        ReaderAppearanceSettings.load(_box, key);
+    // Allow keyboard to appear over immersive mode
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    ReaderAppearanceSettings? result =
+        await showDialog<ReaderAppearanceSettings>(
+      context: context,
+      builder: (ctx) => ReaderSettingsDialog(settings: current),
+    );
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    if (result != null) {
+      await result.save(_box, key);
+      widget.onSettingsChanged?.call();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_collapsed && !_audioLoaded) return _buildCollapsed();
@@ -431,23 +460,23 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
 
   Widget _buildCollapsed() {
     return Container(
-      color: Theme.of(context).cardColor.withOpacity(0.9),
+      color: Colors.black.withOpacity(0.9),
       child: SafeArea(
         top: false,
         child: InkWell(
           onTap: _showMenu,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.audiotrack,
-                    size: 16, color: Theme.of(context).unselectedWidgetColor),
-                const SizedBox(width: 8),
+                    size: 16, color: const Color(0xFFFFFF00)),
+                SizedBox(width: 8),
                 Text('Set audiobook',
                     style: TextStyle(
                         fontSize: 12,
-                        color: Theme.of(context).unselectedWidgetColor)),
+                        color: const Color(0xFFFFFF00))),
               ],
             ),
           ),
@@ -459,7 +488,7 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
   Widget _buildExpanded() {
     return Container(
       height: 48,
-      color: Theme.of(context).cardColor.withOpacity(0.9),
+      color: Colors.black.withOpacity(0.9),
       child: SafeArea(
         top: false,
         child: Padding(
@@ -486,7 +515,9 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
   Widget _btn(IconData icon, String tooltip, VoidCallback onTap) {
     return Material(
       color: Colors.transparent,
-      child: JidoujishoIconButton(size: 24, icon: icon, tooltip: tooltip, onTap: onTap),
+      child: JidoujishoIconButton(
+          size: 24, icon: icon, tooltip: tooltip, onTap: onTap,
+          enabledColor: const Color(0xFFFFFF00)),
     );
   }
 
@@ -510,6 +541,7 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
             ? Icons.chrome_reader_mode
             : Icons.chrome_reader_mode_outlined,
         tooltip: 'Toggle translation book',
+        enabledColor: const Color(0xFFFFFF00),
         onTap: () {
           if (widget.secondaryShown) {
             widget.onToggleSecondary?.call();
@@ -535,9 +567,9 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Text('$p / $d',
-              style: TextStyle(
+              style: const TextStyle(
                   fontSize: 10,
-                  color: Theme.of(context).textTheme.bodySmall?.color)),
+                  color: const Color(0xFFFFFF00))),
         );
       },
     );
@@ -557,6 +589,10 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
             trackHeight: 2,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+            activeTrackColor: const Color(0xFFFFFF00),
+            inactiveTrackColor: const Color(0xFFFFFF00).withOpacity(0.3),
+            thumbColor: const Color(0xFFFFFF00),
+            overlayColor: const Color(0xFFFFFF00).withOpacity(0.2),
           ),
           child: Slider(
             value: val,

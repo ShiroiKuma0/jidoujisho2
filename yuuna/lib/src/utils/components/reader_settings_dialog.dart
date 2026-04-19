@@ -1,0 +1,486 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:hive/hive.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:yuuna/utils.dart';
+
+/// Per-book reader appearance settings.
+class ReaderAppearanceSettings {
+  int fontColor;
+  int backgroundColor;
+  String fontWeight; // 'Thin', 'Normal', 'Bold'
+  int marginLeft;
+  int marginTop;
+  int marginRight;
+  int marginBottom;
+  double paragraphSpacing;
+  double lineSpacing;
+  String fontFamily;
+  String fontFamilySecondary;
+
+  ReaderAppearanceSettings({
+    this.fontColor = 0xFFFFFF00,
+    this.backgroundColor = 0xFF000000,
+    this.fontWeight = 'Normal',
+    this.marginLeft = 0,
+    this.marginTop = 0,
+    this.marginRight = 0,
+    this.marginBottom = 0,
+    this.paragraphSpacing = 0.6,
+    this.lineSpacing = 1.65,
+    this.fontFamily = '',
+    this.fontFamilySecondary = '',
+  });
+
+  /// Load settings from Hive box for a given book key.
+  static ReaderAppearanceSettings load(Box box, String bookKey) {
+    return ReaderAppearanceSettings(
+      fontColor: box.get('rs_fontColor_$bookKey', defaultValue: 0xFFFFFF00),
+      backgroundColor:
+          box.get('rs_bgColor_$bookKey', defaultValue: 0xFF000000),
+      fontWeight:
+          box.get('rs_fontWeight_$bookKey', defaultValue: 'Normal'),
+      marginLeft: box.get('rs_marginL_$bookKey', defaultValue: 0),
+      marginTop: box.get('rs_marginT_$bookKey', defaultValue: 0),
+      marginRight: box.get('rs_marginR_$bookKey', defaultValue: 0),
+      marginBottom: box.get('rs_marginB_$bookKey', defaultValue: 0),
+      paragraphSpacing:
+          (box.get('rs_paraSpacing_$bookKey', defaultValue: 0.6) as num)
+              .toDouble(),
+      lineSpacing:
+          (box.get('rs_lineSpacing_$bookKey', defaultValue: 1.65) as num)
+              .toDouble(),
+      fontFamily: box.get('rs_fontFamily_$bookKey', defaultValue: ''),
+      fontFamilySecondary:
+          box.get('rs_fontFamily2_$bookKey', defaultValue: ''),
+    );
+  }
+
+  /// Save settings to Hive box.
+  Future<void> save(Box box, String bookKey) async {
+    await box.put('rs_fontColor_$bookKey', fontColor);
+    await box.put('rs_bgColor_$bookKey', backgroundColor);
+    await box.put('rs_fontWeight_$bookKey', fontWeight);
+    await box.put('rs_marginL_$bookKey', marginLeft);
+    await box.put('rs_marginT_$bookKey', marginTop);
+    await box.put('rs_marginR_$bookKey', marginRight);
+    await box.put('rs_marginB_$bookKey', marginBottom);
+    await box.put('rs_paraSpacing_$bookKey', paragraphSpacing);
+    await box.put('rs_lineSpacing_$bookKey', lineSpacing);
+    await box.put('rs_fontFamily_$bookKey', fontFamily);
+    await box.put('rs_fontFamily2_$bookKey', fontFamilySecondary);
+  }
+
+  /// Generate CSS to inject into the WebView.
+  String toCss() {
+    String fc =
+        '#${(fontColor & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
+    String bg =
+        '#${(backgroundColor & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
+    String fw;
+    switch (fontWeight) {
+      case 'Thin':
+        fw = '300';
+        break;
+      case 'Bold':
+        fw = '700';
+        break;
+      default:
+        fw = '400';
+    }
+
+    String fontFamilyCss = '';
+    if (fontFamily.isNotEmpty) {
+      fontFamilyCss =
+          '--font-family-serif: "$fontFamily", "Noto Serif JP", serif;';
+    }
+    String fontFamily2Css = '';
+    if (fontFamilySecondary.isNotEmpty) {
+      fontFamily2Css =
+          '--font-family-sans-serif: "$fontFamilySecondary", "Noto Sans JP", sans-serif;';
+    }
+
+    return '''
+      .book-content {
+        color: $fc !important;
+        font-weight: $fw !important;
+        line-height: $lineSpacing !important;
+        $fontFamilyCss
+        $fontFamily2Css
+      }
+      body { background-color: $bg !important; }
+      .py-8 {
+        padding-top: ${marginTop}px !important;
+        padding-bottom: ${marginBottom}px !important;
+      }
+      .px-4, .md\\:px-8 {
+        padding-left: ${marginLeft}px !important;
+        padding-right: ${marginRight}px !important;
+      }
+      .book-content p, .book-content div {
+        margin-bottom: ${paragraphSpacing}em !important;
+      }
+    ''';
+  }
+}
+
+const Color _y = Color(0xFFFFFF00);
+
+/// Dialog for editing reader appearance settings.
+class ReaderSettingsDialog extends StatefulWidget {
+  const ReaderSettingsDialog({
+    required this.settings,
+    super.key,
+  });
+
+  final ReaderAppearanceSettings settings;
+
+  @override
+  State<ReaderSettingsDialog> createState() => _ReaderSettingsDialogState();
+}
+
+class _ReaderSettingsDialogState extends State<ReaderSettingsDialog> {
+  late ReaderAppearanceSettings _s;
+
+  late TextEditingController _marginLController;
+  late TextEditingController _marginTController;
+  late TextEditingController _marginRController;
+  late TextEditingController _marginBController;
+  late TextEditingController _paraSpacingController;
+  late TextEditingController _lineSpacingController;
+  late TextEditingController _fontFamilyController;
+  late TextEditingController _fontFamily2Controller;
+
+  final List<String> _fontWeights = ['Thin', 'Normal', 'Bold'];
+
+  @override
+  void initState() {
+    super.initState();
+    _s = ReaderAppearanceSettings(
+      fontColor: widget.settings.fontColor,
+      backgroundColor: widget.settings.backgroundColor,
+      fontWeight: widget.settings.fontWeight,
+      marginLeft: widget.settings.marginLeft,
+      marginTop: widget.settings.marginTop,
+      marginRight: widget.settings.marginRight,
+      marginBottom: widget.settings.marginBottom,
+      paragraphSpacing: widget.settings.paragraphSpacing,
+      lineSpacing: widget.settings.lineSpacing,
+      fontFamily: widget.settings.fontFamily,
+      fontFamilySecondary: widget.settings.fontFamilySecondary,
+    );
+    _marginLController =
+        TextEditingController(text: _s.marginLeft.toString());
+    _marginTController =
+        TextEditingController(text: _s.marginTop.toString());
+    _marginRController =
+        TextEditingController(text: _s.marginRight.toString());
+    _marginBController =
+        TextEditingController(text: _s.marginBottom.toString());
+    _paraSpacingController =
+        TextEditingController(text: _s.paragraphSpacing.toString());
+    _lineSpacingController =
+        TextEditingController(text: _s.lineSpacing.toString());
+    _fontFamilyController =
+        TextEditingController(text: _s.fontFamily);
+    _fontFamily2Controller =
+        TextEditingController(text: _s.fontFamilySecondary);
+  }
+
+  @override
+  void dispose() {
+    _marginLController.dispose();
+    _marginTController.dispose();
+    _marginRController.dispose();
+    _marginBController.dispose();
+    _paraSpacingController.dispose();
+    _lineSpacingController.dispose();
+    _fontFamilyController.dispose();
+    _fontFamily2Controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickFont(TextEditingController controller) async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['ttf', 'otf'],
+    );
+    if (result != null && result.files.single.path != null) {
+      File file = File(result.files.single.path!);
+      Directory appDir = await getApplicationDocumentsDirectory();
+      String fontName = result.files.single.name.split('.').first;
+      String savedPath = '${appDir.path}/$fontName';
+      File newFile = File(savedPath);
+      await newFile.writeAsBytes(await file.readAsBytes());
+      var loader = FontLoader(fontName);
+      Uint8List bytes = await newFile.readAsBytes();
+      loader.addFont(Future.value(ByteData.view(bytes.buffer)));
+      await loader.load();
+      controller.text = fontName;
+      setState(() {});
+    }
+  }
+
+  void _showColorPicker(
+      String label, Color current, ValueChanged<Color> onPick) {
+    Color chosen = current;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        content: SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: current,
+            paletteType: PaletteType.hueWheel,
+            onColorChanged: (c) => chosen = c,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: _y)),
+          ),
+          TextButton(
+            onPressed: () {
+              onPick(chosen);
+              Navigator.pop(ctx);
+            },
+            child: const Text('OK', style: TextStyle(color: _y)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.black,
+      title: const Text('Reader appearance',
+          style: TextStyle(color: _y)),
+      content: SizedBox(
+        width: MediaQuery.of(context).size.width * 0.85,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Font color
+              _colorRow('Font color', Color(_s.fontColor), (c) {
+                setState(() => _s.fontColor = c.value);
+              }),
+              const SizedBox(height: 12),
+
+              // Background color
+              _colorRow('Background color', Color(_s.backgroundColor), (c) {
+                setState(() => _s.backgroundColor = c.value);
+              }),
+              const SizedBox(height: 16),
+
+              // Font weight
+              const Text('Font weight',
+                  style: TextStyle(color: _y, fontSize: 13)),
+              const SizedBox(height: 4),
+              DropdownButton<String>(
+                value: _s.fontWeight,
+                dropdownColor: Colors.grey[900],
+                style: const TextStyle(color: _y),
+                isExpanded: true,
+                items: _fontWeights
+                    .map((w) => DropdownMenuItem(
+                        value: w,
+                        child: Text(w,
+                            style: const TextStyle(color: _y))))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setState(() => _s.fontWeight = v);
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Font family (serif)
+              _fontField('Font family (serif)', _fontFamilyController),
+              const SizedBox(height: 12),
+
+              // Font family (sans-serif)
+              _fontField(
+                  'Font family (sans-serif)', _fontFamily2Controller),
+              const SizedBox(height: 16),
+
+              // Line spacing
+              _numberField('Line spacing', _lineSpacingController,
+                  decimal: true, resetValue: '1.65'),
+              const SizedBox(height: 12),
+
+              // Paragraph spacing
+              _numberField(
+                  'Paragraph spacing (em)', _paraSpacingController,
+                  decimal: true, resetValue: '0.6'),
+              const SizedBox(height: 16),
+
+              // Margins
+              const Text('Page margins (px)',
+                  style: TextStyle(color: _y, fontSize: 13)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                      child: _marginField('Left', _marginLController)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: _marginField('Top', _marginTController)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                      child: _marginField('Right', _marginRController)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: _marginField('Bottom', _marginBController)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel', style: TextStyle(color: _y)),
+        ),
+        TextButton(
+          onPressed: () {
+            _s.marginLeft =
+                int.tryParse(_marginLController.text) ?? _s.marginLeft;
+            _s.marginTop =
+                int.tryParse(_marginTController.text) ?? _s.marginTop;
+            _s.marginRight =
+                int.tryParse(_marginRController.text) ?? _s.marginRight;
+            _s.marginBottom =
+                int.tryParse(_marginBController.text) ?? _s.marginBottom;
+            _s.paragraphSpacing =
+                double.tryParse(_paraSpacingController.text) ??
+                    _s.paragraphSpacing;
+            _s.lineSpacing =
+                double.tryParse(_lineSpacingController.text) ??
+                    _s.lineSpacing;
+            _s.fontFamily = _fontFamilyController.text.trim();
+            _s.fontFamilySecondary = _fontFamily2Controller.text.trim();
+            Navigator.pop(context, _s);
+          },
+          child: const Text('Apply', style: TextStyle(color: _y)),
+        ),
+      ],
+    );
+  }
+
+  Widget _colorRow(
+      String label, Color color, ValueChanged<Color> onChanged) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(label,
+              style: const TextStyle(color: _y, fontSize: 13)),
+        ),
+        GestureDetector(
+          onTap: () => _showColorPicker(label, color, (c) {
+            onChanged(c);
+          }),
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: color,
+              border: Border.all(color: _y, width: 1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _marginField(String label, TextEditingController controller) {
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      style: const TextStyle(color: _y, fontSize: 14),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: _y, fontSize: 12),
+        enabledBorder: const UnderlineInputBorder(
+            borderSide: BorderSide(color: _y)),
+        focusedBorder: const UnderlineInputBorder(
+            borderSide: BorderSide(color: _y)),
+      ),
+    );
+  }
+
+  Widget _fontField(String label, TextEditingController controller) {
+    return TextField(
+      controller: controller,
+      style: const TextStyle(color: _y, fontSize: 14),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: _y, fontSize: 12),
+        enabledBorder: const UnderlineInputBorder(
+            borderSide: BorderSide(color: _y)),
+        focusedBorder: const UnderlineInputBorder(
+            borderSide: BorderSide(color: _y)),
+        suffixIcon: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            JidoujishoIconButton(
+              size: 18,
+              icon: Icons.font_download,
+              tooltip: 'Pick font file',
+              enabledColor: _y,
+              onTap: () => _pickFont(controller),
+            ),
+            JidoujishoIconButton(
+              size: 18,
+              icon: Icons.undo,
+              tooltip: 'Reset',
+              enabledColor: _y,
+              onTap: () {
+                controller.text = '';
+                FocusScope.of(context).unfocus();
+              },
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _numberField(String label, TextEditingController controller,
+      {bool decimal = false, String? resetValue}) {
+    return TextField(
+      controller: controller,
+      keyboardType:
+          TextInputType.numberWithOptions(decimal: decimal),
+      style: const TextStyle(color: _y, fontSize: 14),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: _y, fontSize: 12),
+        enabledBorder: const UnderlineInputBorder(
+            borderSide: BorderSide(color: _y)),
+        focusedBorder: const UnderlineInputBorder(
+            borderSide: BorderSide(color: _y)),
+        suffixIcon: resetValue != null
+            ? IconButton(
+                icon: const Icon(Icons.undo, color: _y, size: 18),
+                onPressed: () => controller.text = resetValue,
+              )
+            : null,
+      ),
+    );
+  }
+}
