@@ -16,11 +16,23 @@ class ReaderAudioToolbar extends StatefulWidget {
   const ReaderAudioToolbar({
     required this.bookKey,
     required this.appModel,
+    this.onToggleSecondary,
+    this.onOpenSecondaryManager,
+    this.onRemoveSecondary,
+    this.secondaryShown = false,
+    this.hasSecondary = false,
+    this.secondaryTitle,
     super.key,
   });
 
   final String bookKey;
   final AppModel appModel;
+  final VoidCallback? onToggleSecondary;
+  final VoidCallback? onOpenSecondaryManager;
+  final VoidCallback? onRemoveSecondary;
+  final bool secondaryShown;
+  final bool hasSecondary;
+  final String? secondaryTitle;
 
   @override
   State<ReaderAudioToolbar> createState() => ReaderAudioToolbarState();
@@ -355,6 +367,30 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
                     style: TextStyle(color: Colors.red)),
                 onTap: () { Navigator.pop(ctx); _clearAudio(); },
               ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.menu_book),
+              title: Text(widget.hasSecondary
+                  ? (widget.secondaryTitle ?? 'Translation book')
+                  : 'Set translation book'),
+              subtitle: widget.hasSecondary
+                  ? const Text('Tap to change')
+                  : null,
+              onTap: () {
+                Navigator.pop(ctx);
+                widget.onOpenSecondaryManager?.call();
+              },
+            ),
+            if (widget.hasSecondary)
+              ListTile(
+                leading: const Icon(Icons.clear, color: Colors.red),
+                title: const Text('Remove translation book',
+                    style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  widget.onRemoveSecondary?.call();
+                },
+              ),
           ],
         ),
       ),
@@ -437,6 +473,7 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
               _btn(Icons.fast_forward, t.seek_control, _seekNext),
               _buildTime(),
               Expanded(child: _buildSlider()),
+              _buildSecondaryToggle(),
               _btn(Icons.more_vert, t.show_options, _showMenu),
               const SizedBox(width: 4),
             ],
@@ -460,6 +497,28 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
         playing ? Icons.pause : Icons.play_arrow,
         playing ? t.pause : t.play,
         _playPause,
+      ),
+    );
+  }
+
+  Widget _buildSecondaryToggle() {
+    return Material(
+      color: Colors.transparent,
+      child: JidoujishoIconButton(
+        size: 24,
+        icon: widget.secondaryShown
+            ? Icons.chrome_reader_mode
+            : Icons.chrome_reader_mode_outlined,
+        tooltip: 'Toggle translation book',
+        onTap: () {
+          if (widget.secondaryShown) {
+            widget.onToggleSecondary?.call();
+          } else if (widget.hasSecondary) {
+            widget.onToggleSecondary?.call();
+          } else {
+            widget.onOpenSecondaryManager?.call();
+          }
+        },
       ),
     );
   }

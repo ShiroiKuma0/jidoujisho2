@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:hive/hive.dart';
 import 'package:local_assets_server/local_assets_server.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:spaces/spaces.dart';
@@ -42,10 +43,36 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
   final FocusNode _focusNode = FocusNode();
   bool _isRecursiveSearching = false;
 
+  // Secondary (translation) book state
+  bool _secondaryShown = false;
+  double _splitRatio = 0.5;
+  String? _secondaryUrl;
+  String? _secondaryTitle;
+  bool _hasSecondary = false;
+  late Box _readerBox;
+  InAppWebViewController? _secondaryController;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _initSecondaryBook();
+  }
+
+  Future<void> _initSecondaryBook() async {
+    _readerBox = await Hive.openBox('readerAudio');
+    String key = _safeBookKey();
+    _secondaryUrl = _readerBox.get('secondary_url_$key');
+    _secondaryTitle = _readerBox.get('secondary_title_$key');
+    _hasSecondary = _secondaryUrl != null;
+    double? ratio = (_readerBox.get('split_ratio_$key') as num?)?.toDouble();
+    if (ratio != null) _splitRatio = ratio;
+    if (mounted) setState(() {});
+  }
+
+  String _safeBookKey() {
+    String k = widget.item?.uniqueKey ?? 'default';
+    return k.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
   }
 
   @override
@@ -169,6 +196,12 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
           bottomNavigationBar: ReaderAudioToolbar(
             bookKey: widget.item?.uniqueKey ?? 'default',
             appModel: appModel,
+            secondaryShown: _secondaryShown,
+            hasSecondary: _hasSecondary,
+            secondaryTitle: _secondaryTitle,
+            onToggleSecondary: _toggleSecondary,
+            onOpenSecondaryManager: _openSecondaryManager,
+            onRemoveSecondary: _removeSecondary,
           ),
         ),
       ),
@@ -180,7 +213,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         ref.watch(ttuServerProvider(appModel.targetLanguage));
 
     return server.when(
-      data: buildReaderArea,
+      data: (srv) => _buildSplitView(srv),
       loading: buildLoading,
       error: (error, stack) => buildError(
         error: error,
@@ -190,6 +223,180 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         },
       ),
     );
+  }
+
+  Widget _buildSplitView(LocalAssetsServer server) {
+    if (!_secondaryShown) {
+      return buildReaderArea(server);
+    }
+    int topFlex = (_splitRatio * 100).round();
+    int bottomFlex = 100 - topFlex;
+    return Column(
+      children: [
+        Expanded(flex: topFlex, child: buildReaderArea(server)),
+        _buildDivider(),
+        Expanded(flex: bottomFlex, child: _buildSecondaryReader(server)),
+      ],
+    );
+  }
+
+  Widget _buildDivider() {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onVerticalDragUpdate: (details) {
+        final box = context.findRenderObject() as RenderBox;
+        final totalHeight = box.size.height;
+        setState(() {
+          _splitRatio = (_splitRatio + details.delta.dy / totalHeight)
+              .clamp(0.2, 0.8);
+        });
+      },
+      onVerticalDragEnd: (_) {
+        String key = _safeBookKey();
+        _readerBox.put('split_ratio_$key', _splitRatio);
+      },
+      child: Container(
+        height: 8,
+        color: Theme.of(context).cardColor,
+        child: Center(
+          child: Container(
+            width: 40,
+            height: 3,
+            decoration: BoxDecoration(
+              color: Theme.of(context).unselectedWidgetColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSecondaryReader(LocalAssetsServer server) {
+    String url = _secondaryUrl ??
+        'http://localhost:${server.boundPort}/manage.html';
+    return InAppWebView(
+      initialUrlRequest: URLRequest(url: WebUri(url)),
+      initialSettings: InAppWebViewSettings(
+        allowFileAccessFromFileURLs: true,
+        allowUniversalAccessFromFileURLs: true,
+        mediaPlaybackRequiresUserGesture: false,
+        verticalScrollBarEnabled: false,
+        horizontalScrollBarEnabled: false,
+        javaScriptCanOpenWindowsAutomatically: true,
+        verticalScrollbarThumbColor: Colors.transparent,
+        verticalScrollbarTrackColor: Colors.transparent,
+        horizontalScrollbarThumbColor: Colors.transparent,
+        horizontalScrollbarTrackColor: Colors.transparent,
+        scrollbarFadingEnabled: false,
+        appCachePath: appModel.browserDirectory.path,
+        cacheMode: cacheMode,
+        supportMultipleWindows: true,
+        disableContextMenu: true,
+      ),
+      onWebViewCreated: (controller) {
+        _secondaryController = controller;
+      },
+      onLoadStop: (controller, uri) async {
+        await controller.evaluateJavascript(
+            source: 'window.localStorage.setItem("autoBookmark", "1")');
+        await controller.evaluateJavascript(
+            source:
+                'if(!document.getElementById("ttu-margin-fix")){var s=document.createElement("style");s.id="ttu-margin-fix";s.textContent=".py-8{padding-top:0!important;padding-bottom:0!important}.px-4{padding-left:0!important;padding-right:0!important}.md\\\\:px-8{padding-left:0!important;padding-right:0!important}";document.head.appendChild(s)}');
+      },
+      onTitleChanged: (controller, title) async {
+        // Re-inject margins on SPA navigation
+        await controller.evaluateJavascript(
+            source:
+                'if(!document.getElementById("ttu-margin-fix")){var s=document.createElement("style");s.id="ttu-margin-fix";s.textContent=".py-8{padding-top:0!important;padding-bottom:0!important}.px-4{padding-left:0!important;padding-right:0!important}.md\\\\:px-8{padding-left:0!important;padding-right:0!important}";document.head.appendChild(s)}');
+        WebUri? uri = await controller.getUrl();
+        if (uri == null) return;
+        String rawUrl = uri.toString();
+        // SPA navigates to /b?id=X — convert to /b.html?id=X for direct load
+        String saveUrl = rawUrl.replaceFirst('/b?id=', '/b.html?id=');
+        if (!saveUrl.contains('/b.html?id=')) return;
+        // Save URL if new
+        if (saveUrl != _secondaryUrl) {
+          _secondaryUrl = saveUrl;
+          _hasSecondary = true;
+          String key = _safeBookKey();
+          await _readerBox.put('secondary_url_$key', saveUrl);
+        }
+        // Format title as "MainBook ⇨ SecondaryBook"
+        if (title != null && title.isNotEmpty) {
+          String bookName = title.split(' | ').first;
+          if (bookName.isNotEmpty && bookName != 'ッツ Ebook Reader') {
+            String mainTitle = widget.item?.title ?? '';
+            String formattedTitle = mainTitle.isNotEmpty
+                ? '$mainTitle ⇨ $bookName'
+                : bookName;
+            // Only rename if not already renamed
+            if (_secondaryTitle != formattedTitle) {
+              _secondaryTitle = formattedTitle;
+              String key = _safeBookKey();
+              await _readerBox.put('secondary_title_$key', formattedTitle);
+              // Rename in ッツ reader's IndexedDB
+              String jsBookName = bookName
+                  .replaceAll('\\', '\\\\')
+                  .replaceAll("'", "\\'");
+              String jsNewTitle = formattedTitle
+                  .replaceAll('\\', '\\\\')
+                  .replaceAll("'", "\\'");
+              await controller.evaluateJavascript(source: '''
+                (async function() {
+                  try {
+                    var req = indexedDB.open('books');
+                    req.onsuccess = function() {
+                      var db = req.result;
+                      var tx = db.transaction('data', 'readwrite');
+                      var store = tx.objectStore('data');
+                      var idx = store.index('title');
+                      var get = idx.get('$jsBookName');
+                      get.onsuccess = function() {
+                        var book = get.result;
+                        if (book && !book.title.includes('⇨')) {
+                          book.title = '$jsNewTitle';
+                          book.lastBookOpen = 0;
+                          store.put(book);
+                        }
+                      };
+                    };
+                  } catch(e) {}
+                })();
+              ''');
+            }
+          }
+        }
+        if (mounted) setState(() {});
+      },
+    );
+  }
+
+  void _toggleSecondary() {
+    setState(() {
+      _secondaryShown = !_secondaryShown;
+    });
+  }
+
+  void _openSecondaryManager() {
+    _secondaryUrl = null;
+    _secondaryTitle = null;
+    setState(() {
+      _secondaryShown = true;
+    });
+  }
+
+  void _removeSecondary() {
+    String key = _safeBookKey();
+    _readerBox.delete('secondary_url_$key');
+    _readerBox.delete('secondary_title_$key');
+    _readerBox.delete('split_ratio_$key');
+    _secondaryUrl = null;
+    _secondaryTitle = null;
+    _hasSecondary = false;
+    _secondaryShown = false;
+    _secondaryController = null;
+    setState(() {});
   }
 
   void setDictionaryColors() async {
@@ -383,6 +590,9 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         await controller.evaluateJavascript(
             source:
                 'window.localStorage.setItem("autoBookmark", "1")');
+        await controller.evaluateJavascript(
+            source:
+                'var s=document.createElement("style");s.textContent=".py-8{padding-top:0!important;padding-bottom:0!important}.px-4{padding-left:0!important;padding-right:0!important}.md\\\\:px-8{padding-left:0!important;padding-right:0!important}";document.head.appendChild(s)');
         Future.delayed(const Duration(seconds: 1), _focusNode.requestFocus);
       },
       onTitleChanged: (controller, title) async {
