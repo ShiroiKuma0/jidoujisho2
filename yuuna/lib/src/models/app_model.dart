@@ -1232,6 +1232,16 @@ class AppModel with ChangeNotifier {
     dictionaryImportWorkingDirectory.createSync();
     dictionaryResourceDirectory.createSync();
 
+    /// One-time scan of all dictionary resource directories to delete bank
+    /// JSON files left behind by previous app versions that retained them
+    /// after import. Image and other referenced assets are preserved.
+    try {
+      DictionaryResourceCleanup.cleanupAllDictionaries(
+          dictionaryResourceDirectory);
+    } catch (e) {
+      debugPrint('Startup dictionary cleanup failed: $e');
+    }
+
     /// Inject open source licenses for non-Flutter dependencies that are
     /// included as assets.
     await injectAssetLicenses();
@@ -1630,6 +1640,22 @@ class AppModel with ChangeNotifier {
 
       await compute(depositDictionaryDataHelper, prepareDictionaryParams);
 
+      /// The bank JSON files (`term_bank_*.json`, `term_meta_bank_*.json`,
+      /// `kanji_bank_*.json`, `kanji_meta_bank_*.json`, `tag_bank_*.json`,
+      /// `index.json`) have all been parsed into Isar at this point and are
+      /// no longer needed on disk. Image, audio, CSS and other assets
+      /// referenced via `jidoujisho://` URLs are kept.
+      try {
+        final freed =
+            DictionaryResourceCleanup.cleanupBankFiles(resourceDirectory);
+        if (freed > 0) {
+          debugPrint(
+              'Dictionary import: freed $freed bytes of bank JSON files');
+        }
+      } catch (e) {
+        debugPrint('Dictionary import: cleanup failed: $e');
+      }
+
       progressNotifier.value = t.import_complete;
       onImportSuccess();
       await Future.delayed(const Duration(seconds: 1), () {});
@@ -1723,6 +1749,81 @@ class AppModel with ChangeNotifier {
     }
 
     dictionarySearchAgainNotifier.notifyListeners();
+  }
+
+  /// Wipe WebView cache directories used by the reader. This frees disk
+  /// space without affecting imported books — the ttu reader's IndexedDB
+  /// store lives in `app_webview/` which is not touched here. The Huawei
+  /// system WebView mirror at `app_hws_webview/` is purely a cache and is
+  /// safe to clear in full.
+  ///
+  /// Returns the total number of bytes freed.
+  int clearReaderCaches() {
+    final dataRoot = appDirectory.parent;
+    int totalFreed = 0;
+
+    final hwsDir = Directory(path.join(dataRoot.path, 'app_hws_webview'));
+    if (hwsDir.existsSync()) {
+      totalFreed += DictionaryResourceCleanup.clearDirectoryContents(hwsDir);
+    }
+
+    // Inside app_webview, only clear known cache subdirectories; never
+    // touch IndexedDB, Local Storage, Service Worker or other state.
+    final webviewDir = Directory(path.join(dataRoot.path, 'app_webview'));
+    if (webviewDir.existsSync()) {
+      const cacheNames = {
+        'Cache',
+        'Code Cache',
+        'GPU Cache',
+        'GPUCache',
+        'CacheStorage',
+      };
+      try {
+        for (final entity
+            in webviewDir.listSync(recursive: true, followLinks: false)) {
+          if (entity is! Directory) continue;
+          if (cacheNames.contains(path.basename(entity.path))) {
+            totalFreed +=
+                DictionaryResourceCleanup.clearDirectoryContents(entity);
+          }
+        }
+      } catch (e) {
+        debugPrint('clearReaderCaches: webview walk failed: $e');
+      }
+    }
+
+    return totalFreed;
+  }
+
+  /// Compute the size of WebView caches that `clearReaderCaches` would free.
+  int getReaderCacheSize() {
+    final dataRoot = appDirectory.parent;
+    int total = 0;
+
+    final hwsDir = Directory(path.join(dataRoot.path, 'app_hws_webview'));
+    total += DictionaryResourceCleanup.directorySize(hwsDir);
+
+    final webviewDir = Directory(path.join(dataRoot.path, 'app_webview'));
+    if (webviewDir.existsSync()) {
+      const cacheNames = {
+        'Cache',
+        'Code Cache',
+        'GPU Cache',
+        'GPUCache',
+        'CacheStorage',
+      };
+      try {
+        for (final entity
+            in webviewDir.listSync(recursive: true, followLinks: false)) {
+          if (entity is Directory &&
+              cacheNames.contains(path.basename(entity.path))) {
+            total += DictionaryResourceCleanup.directorySize(entity);
+          }
+        }
+      } catch (_) {}
+    }
+
+    return total;
   }
 
   /// Delete a selected mapping from the database.

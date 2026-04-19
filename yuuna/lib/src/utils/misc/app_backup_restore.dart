@@ -43,16 +43,26 @@ class AppBackupRestore {
       if (staging.existsSync()) staging.deleteSync(recursive: true);
       staging.createSync(recursive: true);
 
-      // Copy entire data root, skipping cache and temp directories
+      // Copy entire data root, skipping cache and temp directories.
+      // `app_hws_webview` is the Huawei system WebView cache which can be
+      // hundreds of MB on affected devices and provides no value in a backup.
       await _copyDirectory(
         dataRoot,
         staging,
         skip: {
           'cache',
           'code_cache',
+          'app_hws_webview',
           'dictionaryImportWorkingDirectory',
           'backup_staging',
           'backup_restore',
+        },
+        skipNested: const {
+          'Cache',
+          'Code Cache',
+          'GPU Cache',
+          'GPUCache',
+          'CacheStorage',
         },
       );
 
@@ -260,11 +270,17 @@ class AppBackupRestore {
     }
   }
 
-  /// Recursively copy a directory, optionally skipping named subdirectories.
+  /// Recursively copy a directory.
+  ///
+  /// [skip] applies only at the top level — names matching are skipped.
+  /// [skipNested] applies at any depth — directories matching are skipped
+  /// regardless of where they appear in the tree (used for cache dirs that
+  /// browsers/WebViews scatter through their data directory).
   static Future<void> _copyDirectory(
     Directory source,
     Directory destination, {
     Set<String> skip = const {},
+    Set<String> skipNested = const {},
   }) async {
     if (!destination.existsSync()) {
       destination.createSync(recursive: true);
@@ -273,12 +289,19 @@ class AppBackupRestore {
     await for (var entity in source.list()) {
       final name = path.basename(entity.path);
       if (skip.contains(name)) continue;
+      if (skipNested.contains(name)) continue;
 
       final destPath = path.join(destination.path, name);
       if (entity is File) {
         await entity.copy(destPath);
       } else if (entity is Directory) {
-        await _copyDirectory(entity, Directory(destPath));
+        // Pass an empty `skip` to nested calls (top-level-only filter), but
+        // continue propagating `skipNested` all the way down.
+        await _copyDirectory(
+          entity,
+          Directory(destPath),
+          skipNested: skipNested,
+        );
       }
     }
   }

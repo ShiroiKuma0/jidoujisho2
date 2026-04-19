@@ -183,11 +183,15 @@ class _HomePageState extends BasePageState<HomePage>
           style: textTheme.titleLarge,
         ),
         const Space.extraSmall(),
-        Text(
-          appVersion,
-          style: textTheme.labelSmall!.copyWith(
-            letterSpacing: 0,
-            fontWeight: FontWeight.bold,
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onLongPress: () => StorageBenchmarkDialog.show(context, appModel),
+          child: Text(
+            appVersion,
+            style: textTheme.labelSmall!.copyWith(
+              letterSpacing: 0,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ],
@@ -348,6 +352,58 @@ class _HomePageState extends BasePageState<HomePage>
     );
   }
 
+  Future<void> clearReaderCacheAction() async {
+    final estimate = appModel.getReaderCacheSize();
+
+    String formatBytes(int b) {
+      if (b < 1024) return '$b B';
+      if (b < 1024 * 1024) return '${(b / 1024).toStringAsFixed(1)} KB';
+      if (b < 1024 * 1024 * 1024) {
+        return '${(b / (1024 * 1024)).toStringAsFixed(1)} MB';
+      }
+      return '${(b / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear reader cache'),
+        content: Text(
+            'This will free roughly ${formatBytes(estimate)} of WebView '
+            'cache used by the ebook reader. Imported books and your reading '
+            'progress are not affected.\n\nContinue?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final freed = appModel.clearReaderCaches();
+
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cache cleared'),
+        content: Text('Freed ${formatBytes(freed)}.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   List<PopupMenuItem<VoidCallback>> getMenuItems() {
     return [
       buildPopupItem(
@@ -409,6 +465,11 @@ class _HomePageState extends BasePageState<HomePage>
           appModel: appModel,
           context: context,
         ),
+      ),
+      buildPopupItem(
+        label: 'Clear reader cache',
+        icon: Icons.cleaning_services,
+        action: clearReaderCacheAction,
       ),
       buildPopupItem(
         label: t.options_attribution,
