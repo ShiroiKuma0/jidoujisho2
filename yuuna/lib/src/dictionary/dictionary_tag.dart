@@ -1,14 +1,21 @@
 import 'dart:ui';
 
-import 'package:yuuna/dictionary.dart';
 import 'package:isar/isar.dart';
+import 'package:yuuna/dictionary.dart';
 
 part 'dictionary_tag.g.dart';
 
 /// A database entity for tags, heavily based on the Yomichan format.
+///
+/// Tags are display metadata only — they describe a tag's color, category,
+/// human-readable notes etc. The actual relationship from entries to tags
+/// lives inline on each [DictionaryEntry] as a space-separated string in
+/// `entryTagsRaw` / `headingTagsRaw`. At render time, those names are
+/// looked up against an in-memory `Map<String, DictionaryTag>` built per
+/// dictionary.
 @Collection()
 class DictionaryTag {
-  /// Initiates a tag with given parameters.
+  /// Initialise a tag with the given parameters.
   DictionaryTag({
     required this.dictionaryId,
     required this.name,
@@ -18,7 +25,9 @@ class DictionaryTag {
     required this.popularity,
   });
 
-  /// Makes a tag for a dictionary.
+  /// Convenience factory for the implicit tag that represents the
+  /// dictionary itself (used as a chip on entries to identify their source
+  /// dictionary).
   factory DictionaryTag.dictionary(Dictionary dictionary) {
     return DictionaryTag(
       dictionaryId: dictionary.id,
@@ -30,22 +39,27 @@ class DictionaryTag {
     );
   }
 
-  /// Dictionary ID for hashing this tag.
+  /// Dictionary id this tag belongs to. Indexed for delete-by-dictionary.
+  @Index()
   final int dictionaryId;
 
-  /// Function to generate a lookup ID for heading by its unique string key.
+  /// Function to generate a stable lookup id for a tag from its composite
+  /// key.
   static int hash({required int dictionaryId, required String name}) {
     return fastHash('$dictionaryId/$name');
   }
 
-  /// Identifier for database purposes.
+  /// Identifier for database purposes. Computed from [dictionaryId] and
+  /// [name] so that lookups during import and at render time can use a
+  /// known id without an index probe.
   Id get isarId => hash(dictionaryId: dictionaryId, name: name);
 
-  /// Display name for the tag.
+  /// Display name for the tag (the lookup key from the entry's
+  /// `*TagsRaw` strings).
   @Index()
   final String name;
 
-  /// Category for the tag.
+  /// Category for the tag, used to pick a color.
   final String category;
 
   /// Sorting order for the tag.
@@ -54,9 +68,8 @@ class DictionaryTag {
   /// Notes for this tag.
   final String notes;
 
-  /// Score used to determine popularity.
-  /// Negative values are more rare and positive values are more frequent.
-  /// This score is also used to sort search results.
+  /// Score used to determine popularity. Negative = rare, positive =
+  /// frequent. Also used to sort search results in some legacy code paths.
   final double popularity;
 
   /// Get the color for this tag based on its category.
@@ -83,9 +96,6 @@ class DictionaryTag {
 
     return const Color(0xFF616161);
   }
-
-  /// A value is yielded from a single key.
-  final IsarLink<Dictionary> dictionary = IsarLink<Dictionary>();
 
   @override
   bool operator ==(Object other) =>

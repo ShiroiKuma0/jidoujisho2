@@ -139,6 +139,7 @@ class DictionaryTermPage extends ConsumerWidget {
 
                     return DictionaryEntryPage(
                       entry: entry,
+                      heading: heading,
                       onSearch: onSearch,
                       onStash: onStash,
                       onShare: onShare,

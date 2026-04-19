@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'dart:collection';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui';
@@ -44,11 +44,9 @@ import 'package:yuuna/utils.dart';
 final List<CollectionSchema> globalSchemas = [
   DictionarySchema,
   DictionaryEntrySchema,
-  DictionaryHeadingSchema,
   DictionaryPitchSchema,
   DictionaryFrequencySchema,
   DictionaryTagSchema,
-  DictionarySearchResultSchema,
   MediaItemSchema,
   AnkiMappingSchema,
   SearchHistoryItemSchema,
@@ -144,8 +142,28 @@ class AppModel with ChangeNotifier {
   /// Public access to preferences box for custom language config.
   Box get preferences => _preferences;
 
-  /// Used for accessing persistent dictonary history. See [initialise].
-  late final Box<int> _dictionaryHistory;
+  /// In-memory dictionary search history, ordered oldest to newest.
+  /// The value at each position is the search result; the stable
+  /// `result.id` is used by providers that want to react to a specific
+  /// result being updated (scroll position etc.). Capped at
+  /// [maximumDictionaryHistoryItems].
+  ///
+  /// Previously backed by a Hive box of Isar ids — search results were
+  /// a persisted collection. With the flat schema results live in
+  /// memory and are rebuilt on demand.
+  final LinkedHashMap<int, DictionarySearchResult> _dictionaryHistory =
+      LinkedHashMap<int, DictionarySearchResult>();
+
+  /// Monotonic counter used to assign ids to new
+  /// [DictionarySearchResult]s. Consumer providers rebuild when this
+  /// changes.
+  int _nextSearchResultIdCounter = 1;
+
+  /// Per-result change notifier, keyed on
+  /// [DictionarySearchResult.id]. Replaces the prior use of
+  /// `_database.dictionarySearchResults.watchObjectLazy` which depended
+  /// on Isar-backed results.
+  final Map<int, ChangeNotifier> _resultChangeNotifiers = {};
 
   /// Used for accessing persistent database data. See [initialise].
   late final Isar _database;
@@ -347,14 +365,29 @@ class AppModel with ChangeNotifier {
 
   /// Returns all dictionary history results. Oldest is first.
   List<DictionarySearchResult> get dictionaryHistory =>
-      _database.dictionarySearchResults
-          .getAllSync(_dictionaryHistory.values.toList())
-          .nonNulls
-          .toList();
+      _dictionaryHistory.values.toList();
 
-  /// For watching the dictionary history collection.
+  /// For watching a specific dictionary history item. Returns a stream
+  /// that emits whenever the item's scroll position (or other in-place
+  /// field) is mutated. Internal implementation is a per-id
+  /// [ChangeNotifier].
   Stream<void> Function(int) get watchDictionaryItem =>
-      _database.dictionarySearchResults.watchObjectLazy;
+      (int id) => _watchDictionaryItemStream(id);
+
+  Stream<void> _watchDictionaryItemStream(int id) {
+    final controller = StreamController<void>.broadcast();
+    final notifier = _resultChangeNotifiers.putIfAbsent(
+      id,
+      () => ChangeNotifier(),
+    );
+    void listener() => controller.add(null);
+    notifier.addListener(listener);
+    controller.onCancel = () {
+      notifier.removeListener(listener);
+      controller.close();
+    };
+    return controller.stream;
+  }
 
   /// For invoking pauses from media where needed.
   Stream<void> get currentMediaPauseStream =>
@@ -1202,7 +1235,6 @@ class AppModel with ChangeNotifier {
     /// Initialise persistent key-value store.
     await Hive.initFlutter();
     _preferences = await Hive.openBox('appModel');
-    _dictionaryHistory = await Hive.openBox('dictionaryHistory');
 
     /// Perform startup activities unnecessary to further initialisation here.
     await requestExternalStoragePermissions();
@@ -1283,11 +1315,64 @@ class AppModel with ChangeNotifier {
     }
 
     /// Initialise persistent database.
+    ///
+    /// [compactOnLaunch] shrinks the Isar file on startup when the
+    /// database has accumulated significant dead space. Isar allocates
+    /// file space in chunks and never shrinks it during normal
+    /// operation, so after the v2 schema migration wipes the old data
+    /// the file still occupies its previous maximum size on disk.
+    /// Triggering compaction on next launch reclaims that space.
     _database = await Isar.open(
       globalSchemas,
       directory: _databaseDirectory.path,
       maxSizeMiB: 8192,
+      compactOnLaunch: const CompactCondition(
+        minBytes: 50 * 1024 * 1024, // at least 50 MB of reclaimable space
+        minRatio: 1.5, // and file is at least 1.5x larger than data
+      ),
     );
+
+    /// Dictionary schema v2 migration.
+    ///
+    /// The flat-schema rewrite (2.10.0) drops the on-disk layout that
+    /// previous versions used — including the old `DictionaryHeading`
+    /// and `DictionarySearchResult` collections and the `IsarLinks`
+    /// that joined rows across collections. Old dictionary data is
+    /// unreadable under the new schema, so on first launch under v2 we
+    /// transparently wipe all imported dictionary data. Users need to
+    /// re-import their dictionaries. This is called out prominently in
+    /// the 2.10.0 release notes; no confirmation dialog is shown
+    /// because the data is always re-importable from the original
+    /// archives.
+    const migrationFlagKey = 'dictionary_schema_v2_initialized';
+    final bool migrated =
+        _preferences.get(migrationFlagKey, defaultValue: false);
+    if (!migrated) {
+      try {
+        // Clear everything in-database that might reference the old
+        // schema. `deleteDictionariesHelper` walks only the schemas in
+        // `globalSchemas` (which no longer includes the old
+        // collections), so this is effectively a v2-data-scope wipe;
+        // the old collections will already have been dropped by Isar
+        // when it opened the DB without their schemas above.
+        final ReceivePort port = ReceivePort();
+        final DeleteDictionaryParams clearParams = DeleteDictionaryParams(
+          directoryPath: _databaseDirectory.path,
+          sendPort: port.sendPort,
+        );
+        await compute(deleteDictionariesHelper, clearParams);
+
+        // Also wipe resource directories — images, audio, CSS files
+        // belonging to the old dictionaries.
+        if (dictionaryResourceDirectory.existsSync()) {
+          dictionaryResourceDirectory.deleteSync(recursive: true);
+          dictionaryResourceDirectory.createSync();
+        }
+      } catch (e) {
+        debugPrint('Schema v2 migration wipe failed: $e');
+      }
+      await _preferences.put(migrationFlagKey, true);
+    }
 
     /// Ensure dictionaries imported with auto-hide are also hidden for
     /// any languages added after the dictionary was imported.
@@ -1716,7 +1801,7 @@ class AppModel with ChangeNotifier {
     );
 
     await compute(deleteDictionariesHelper, params);
-    await _dictionaryHistory.clear();
+    await clearDictionaryHistory();
 
     if (dictionaryResourceDirectory.existsSync()) {
       dictionaryResourceDirectory.deleteSync(recursive: true);
@@ -1739,7 +1824,7 @@ class AppModel with ChangeNotifier {
     );
 
     await compute(deleteDictionaryHelper, params);
-    await _dictionaryHistory.clear();
+    await clearDictionaryHistory();
 
     final directory = Directory(
         path.join(dictionaryResourceDirectory.path, dictionary.id.toString()));
@@ -1753,34 +1838,30 @@ class AppModel with ChangeNotifier {
 
   /// Wipe WebView cache directories used by the reader. This frees disk
   /// space without affecting imported books — the ttu reader's IndexedDB
-  /// store lives in `app_webview/` which is not touched here. The Huawei
-  /// system WebView mirror at `app_hws_webview/` is purely a cache and is
-  /// safe to clear in full.
+  /// store is preserved. Both `app_webview/` (standard Android WebView) and
+  /// `app_hws_webview/` (Huawei HMS WebView) are walked and only named
+  /// cache subdirectories are cleared. Never touches IndexedDB, Local
+  /// Storage, Service Worker, or other persistent state.
   ///
   /// Returns the total number of bytes freed.
   int clearReaderCaches() {
     final dataRoot = appDirectory.parent;
     int totalFreed = 0;
 
-    final hwsDir = Directory(path.join(dataRoot.path, 'app_hws_webview'));
-    if (hwsDir.existsSync()) {
-      totalFreed += DictionaryResourceCleanup.clearDirectoryContents(hwsDir);
-    }
+    const cacheNames = {
+      'Cache',
+      'Code Cache',
+      'GPU Cache',
+      'GPUCache',
+      'CacheStorage',
+    };
 
-    // Inside app_webview, only clear known cache subdirectories; never
-    // touch IndexedDB, Local Storage, Service Worker or other state.
-    final webviewDir = Directory(path.join(dataRoot.path, 'app_webview'));
-    if (webviewDir.existsSync()) {
-      const cacheNames = {
-        'Cache',
-        'Code Cache',
-        'GPU Cache',
-        'GPUCache',
-        'CacheStorage',
-      };
+    for (final dirName in const ['app_webview', 'app_hws_webview']) {
+      final dir = Directory(path.join(dataRoot.path, dirName));
+      if (!dir.existsSync()) continue;
       try {
         for (final entity
-            in webviewDir.listSync(recursive: true, followLinks: false)) {
+            in dir.listSync(recursive: true, followLinks: false)) {
           if (entity is! Directory) continue;
           if (cacheNames.contains(path.basename(entity.path))) {
             totalFreed +=
@@ -1788,7 +1869,7 @@ class AppModel with ChangeNotifier {
           }
         }
       } catch (e) {
-        debugPrint('clearReaderCaches: webview walk failed: $e');
+        debugPrint('clearReaderCaches: $dirName walk failed: $e');
       }
     }
 
@@ -1800,21 +1881,20 @@ class AppModel with ChangeNotifier {
     final dataRoot = appDirectory.parent;
     int total = 0;
 
-    final hwsDir = Directory(path.join(dataRoot.path, 'app_hws_webview'));
-    total += DictionaryResourceCleanup.directorySize(hwsDir);
+    const cacheNames = {
+      'Cache',
+      'Code Cache',
+      'GPU Cache',
+      'GPUCache',
+      'CacheStorage',
+    };
 
-    final webviewDir = Directory(path.join(dataRoot.path, 'app_webview'));
-    if (webviewDir.existsSync()) {
-      const cacheNames = {
-        'Cache',
-        'Code Cache',
-        'GPU Cache',
-        'GPUCache',
-        'CacheStorage',
-      };
+    for (final dirName in const ['app_webview', 'app_hws_webview']) {
+      final dir = Directory(path.join(dataRoot.path, dirName));
+      if (!dir.existsSync()) continue;
       try {
         for (final entity
-            in webviewDir.listSync(recursive: true, followLinks: false)) {
+            in dir.listSync(recursive: true, followLinks: false)) {
           if (entity is Directory &&
               cacheNames.contains(path.basename(entity.path))) {
             total += DictionaryResourceCleanup.directorySize(entity);
@@ -1899,6 +1979,12 @@ class AppModel with ChangeNotifier {
 
   /// Gets the raw unprocessed entries straight from a dictionary database
   /// given a search term. This will be processed later for user viewing.
+  ///
+  /// Returns a [DictionarySearchResult] assembled in-memory from the
+  /// worker's [SearchResultData]. Entries have their
+  /// `compressedDefinitions` decoded via [DefinitionCodec.decode] and
+  /// the result is cached so that repeated searches for the same term
+  /// are cheap.
   Future<DictionarySearchResult> searchDictionary({
     required String searchTerm,
     required bool searchWithWildcards,
@@ -1938,27 +2024,187 @@ class AppModel with ChangeNotifier {
       return DictionarySearchResult(searchTerm: searchTerm);
     }
 
-    /// Searching also persists the result in the database. This is useful for
-    /// dictionary search history, as well as allowing a result to be linked
-    /// to the actual data, rather than duplicating that data within the
-    /// database, which is not ideal for storage purposes.
     _searchOperation =
         cancelable.compute(targetLanguage.prepareSearchResults, params);
-    int? id = await _searchOperation?.value;
+    final SearchResultData? data = await _searchOperation?.value;
 
-    if (id == null) {
+    if (data == null || data.groups.isEmpty) {
       return DictionarySearchResult(searchTerm: searchTerm);
     }
 
-    DictionarySearchResult? result =
-        _database.dictionarySearchResults.getSync(id);
+    // Post-processing (main isolate): batch-load all entry rows, decode
+    // compressed definitions, load pitch+frequency rows, resolve tag
+    // display metadata, build view-model DictionaryHeading list.
+    final result = await _buildSearchResultFromData(
+      data: data,
+      originalSearchTerm: searchTerm,
+    );
 
-    if (result != null && result.headingIds.isNotEmpty) {
-      _dictionarySearchCache['$searchTerm/$overrideMaximumTerms'] = result;
-      return result;
-    } else {
+    if (result.headings.isEmpty) {
       return DictionarySearchResult(searchTerm: searchTerm);
     }
+
+    _dictionarySearchCache['$searchTerm/$overrideMaximumTerms'] = result;
+    return result;
+  }
+
+  /// Translate a [SearchResultData] (worker output) into the full
+  /// in-memory [DictionarySearchResult] that the UI consumes. Pulls
+  /// entry rows, decompresses their definitions, and attaches pitch/
+  /// frequency rows and display-metadata tags to each heading.
+  Future<DictionarySearchResult> _buildSearchResultFromData({
+    required SearchResultData data,
+    required String originalSearchTerm,
+  }) async {
+    // Flat id list → single getAllSync call.
+    final allEntryIds = data.allEntryIds;
+    final loadedEntries = _database.dictionaryEntrys
+        .getAllSync(allEntryIds)
+        .whereType<DictionaryEntry>()
+        .toList();
+    final entriesById = <int, DictionaryEntry>{
+      for (final e in loadedEntries) e.id!: e,
+    };
+
+    // Decode all compressed definitions in parallel.
+    await Future.wait(loadedEntries.map((e) async {
+      e.decodedDefinitionsCache =
+          await DefinitionCodec.decode(e.compressedDefinitions);
+    }));
+
+    // Collect every pitch and frequency id referenced by the result,
+    // then batch-load those rows.
+    final pitchIds = <int>{};
+    final frequencyIds = <int>{};
+    for (final g in data.groups) {
+      pitchIds.addAll(g.pitchIds);
+      frequencyIds.addAll(g.frequencyIds);
+    }
+    final pitchesById = <int, DictionaryPitch>{
+      for (final p in _database.dictionaryPitchs
+          .getAllSync(pitchIds.toList())
+          .whereType<DictionaryPitch>())
+        p.id!: p,
+    };
+    final frequenciesById = <int, DictionaryFrequency>{
+      for (final f in _database.dictionaryFrequencys
+          .getAllSync(frequencyIds.toList())
+          .whereType<DictionaryFrequency>())
+        f.id!: f,
+    };
+
+    // Build a per-dictionary tag lookup so the heading.tags list can
+    // be populated without issuing a query per tag name per heading.
+    final dictionaryIds = <int>{};
+    for (final e in loadedEntries) {
+      dictionaryIds.add(e.dictionaryId);
+    }
+    for (final p in pitchesById.values) {
+      dictionaryIds.add(p.dictionaryId);
+    }
+    for (final f in frequenciesById.values) {
+      dictionaryIds.add(f.dictionaryId);
+    }
+    final dictsById = <int, Dictionary>{
+      for (final d in _database.dictionarys
+          .getAllSync(dictionaryIds.toList())
+          .whereType<Dictionary>())
+        d.id: d,
+    };
+
+    // Wire up the transient dictionaryRef fields so downstream
+    // consumers can keep using `entity.dictionary.value!.xxx` access.
+    for (final e in loadedEntries) {
+      e.dictionaryRef = dictsById[e.dictionaryId];
+    }
+    for (final p in pitchesById.values) {
+      p.dictionaryRef = dictsById[p.dictionaryId];
+    }
+    for (final f in frequenciesById.values) {
+      f.dictionaryRef = dictsById[f.dictionaryId];
+    }
+
+    final tagsByDict = <int, Map<String, DictionaryTag>>{};
+    for (final dictId in dictionaryIds) {
+      final tags = _database.dictionaryTags
+          .where()
+          .dictionaryIdEqualTo(dictId)
+          .findAllSync();
+      tagsByDict[dictId] = {for (final t in tags) t.name: t};
+    }
+
+    DictionaryTag? _lookupTag(int dictId, String name) =>
+        tagsByDict[dictId]?[name];
+
+    // Assemble one view-model DictionaryHeading per EntryGroup.
+    final headings = <DictionaryHeading>[];
+    for (final g in data.groups) {
+      final entries = <DictionaryEntry>[];
+      final headingTagSet = <DictionaryTag>{};
+      for (final id in g.entryIds) {
+        final entry = entriesById[id];
+        if (entry == null) continue;
+
+        // Resolve per-entry tags from the entryTagsRaw string.
+        final entryTagList = <DictionaryTag>[];
+        for (final name in entry.entryTagsRaw.split(' ')) {
+          if (name.isEmpty) continue;
+          final tag = _lookupTag(entry.dictionaryId, name);
+          if (tag != null) entryTagList.add(tag);
+        }
+        entry.tags = entryTagList;
+
+        entries.add(entry);
+
+        // Heading-level tags come from headingTagsRaw on any entry in
+        // the group (they describe the headword, not the individual
+        // entry). Dedup by identity.
+        for (final name in entry.headingTagsRaw.split(' ')) {
+          if (name.isEmpty) continue;
+          final tag = _lookupTag(entry.dictionaryId, name);
+          if (tag != null) headingTagSet.add(tag);
+        }
+      }
+
+      final pitches = <DictionaryPitch>[
+        for (final id in g.pitchIds)
+          if (pitchesById[id] != null) pitchesById[id]!,
+      ];
+      final frequencies = <DictionaryFrequency>[
+        for (final id in g.frequencyIds)
+          if (frequenciesById[id] != null) frequenciesById[id]!,
+      ];
+
+      if (entries.isEmpty) continue;
+
+      headings.add(DictionaryHeading(
+        term: g.term,
+        reading: g.reading,
+        entries: entries,
+        pitches: pitches,
+        frequencies: frequencies,
+        tags: headingTagSet.toList(),
+      ));
+    }
+
+    final id = _nextSearchResultIdCounter++;
+    return DictionarySearchResult(
+      id: id,
+      searchTerm: data.searchTerm,
+      bestLength: data.bestLength,
+      headings: headings,
+    );
+  }
+
+  /// Decode the definitions on a [DictionaryEntry] if they have not
+  /// been decoded yet. Callers that receive entries through paths
+  /// other than [searchDictionary] (for example a field renderer that
+  /// is handed an entry reference) should invoke this before reading
+  /// [DictionaryEntry.decodedDefinitions].
+  Future<void> ensureDecoded(DictionaryEntry entry) async {
+    if (entry.decodedDefinitionsCache != null) return;
+    entry.decodedDefinitionsCache =
+        await DefinitionCodec.decode(entry.compressedDefinitions);
   }
 
   /// Check if a mapping with a certain name with a different order already
@@ -3207,27 +3453,28 @@ class AppModel with ChangeNotifier {
     );
   }
 
-  /// Update the scroll index of a given [DictionarySearchResult] in the database.
+  /// Update the scroll index of a given [DictionarySearchResult]. The
+  /// mutation is in-memory only; a per-id [ChangeNotifier] is
+  /// notified so that any listeners (e.g. `watchDictionaryItem`
+  /// streams) rebuild.
   Future<void> updateDictionaryResultScrollIndex({
     required DictionarySearchResult result,
     required int newIndex,
   }) async {
-    ReceivePort receivePort = ReceivePort();
-    UpdateDictionaryHistoryParams params = UpdateDictionaryHistoryParams(
-      resultId: result.id!,
-      directoryPath: _databaseDirectory.path,
-      newPosition: newIndex,
-      maximumDictionaryHistoryItems: maximumDictionaryHistoryItems,
-      sendPort: receivePort.sendPort,
-    );
-    await compute(updateDictionaryHistoryHelper, params);
+    result.scrollPosition = newIndex;
+    final id = result.id;
+    if (id != null) {
+      _resultChangeNotifiers[id]?.notifyListeners();
+    }
   }
 
-  /// Clear the entire dictionary history. This must be performed when a
-  /// dictionary is deleted, otherwise history data cannot be viewed without
-  /// the necessary dictionary metadata.
+  /// Clear the entire dictionary history.
   Future<void> clearDictionaryHistory() async {
-    await _dictionaryHistory.clear();
+    for (final notifier in _resultChangeNotifiers.values) {
+      notifier.dispose();
+    }
+    _resultChangeNotifiers.clear();
+    _dictionaryHistory.clear();
 
     dictionaryEntriesNotifier.notifyListeners();
   }
@@ -3785,6 +4032,21 @@ class AppModel with ChangeNotifier {
     await _preferences.put('auto_search', !autoSearchEnabled);
   }
 
+  /// When enabled, tapping a word in a reader/player/browser opens the
+  /// full-screen recursive dictionary page directly instead of first
+  /// showing the half-screen pop-up result. The half-screen "Show more"
+  /// expansion path is unaffected — it only governs the initial tap.
+  bool get autoFullScreenDictionary {
+    return _preferences.get('auto_full_screen_dictionary',
+        defaultValue: false);
+  }
+
+  /// Toggle the "open full-screen dictionary on tap" preference.
+  void toggleAutoFullScreenDictionary() async {
+    await _preferences.put(
+        'auto_full_screen_dictionary', !autoFullScreenDictionary);
+  }
+
   /// Search debounce delay in milliseconds by default.
   final int defaultSearchDebounceDelay = 100;
 
@@ -3876,7 +4138,8 @@ class AppModel with ChangeNotifier {
     await _preferences.put('maximum_terms', value);
   }
 
-  /// Adds a [DictionarySearchResult] to dictionary history.
+  /// Adds a [DictionarySearchResult] to dictionary history. Manages a
+  /// bounded in-memory LRU — no more persisted Hive/Isar state.
   void addToDictionaryHistory({required DictionarySearchResult result}) async {
     MediaType mediaType = mediaTypes.values.toList()[currentHomeTabIndex];
     if (mediaType != DictionaryMediaType.instance) {
@@ -3888,43 +4151,49 @@ class AppModel with ChangeNotifier {
       }
     }
 
-    if (result.headings.isEmpty || result.searchTerm.isEmpty) {
-      return;
-    }
+    if (result.headings.isEmpty || result.searchTerm.isEmpty) return;
+    final id = result.id;
+    if (id == null) return;
 
-    _dictionaryHistory.deleteAll(_dictionaryHistory
-        .toMap()
-        .entries
-        .where((e) => e.value == result.id)
-        .map((e) => e.key)
-        .toList());
+    // Remove prior occurrence (if any) so the same result re-enters at
+    // the tail; LinkedHashMap preserves insertion order.
+    _dictionaryHistory.remove(id);
+    _dictionaryHistory[id] = result;
 
-    await _dictionaryHistory.add(result.id!);
-
-    int countInSameHistory = _dictionaryHistory.length;
-
-    if (maximumDictionaryHistoryItems < countInSameHistory) {
-      int surplus = countInSameHistory - maximumDictionaryHistoryItems;
-
-      _dictionaryHistory
-          .deleteAll(_dictionaryHistory.keys.toList().sublist(0, surplus));
+    // Cap history size. Evict the oldest entries until we're at or
+    // under the limit.
+    while (_dictionaryHistory.length > maximumDictionaryHistoryItems) {
+      final oldestId = _dictionaryHistory.keys.first;
+      _dictionaryHistory.remove(oldestId);
+      final notifier = _resultChangeNotifiers.remove(oldestId);
+      notifier?.dispose();
     }
   }
 
-  /// Adds a [DictionarySearchResult] to dictionary history.
+  /// Returns the frequency rows for `(term, reading='')` from all
+  /// non-hidden dictionaries, excluding any that already apply to the
+  /// specific reading. Used to surface generic frequency data when a
+  /// dictionary ships a reading-less frequency entry for a term that
+  /// has multiple readings.
   List<DictionaryFrequency> getNoReadingFrequencies(
       {required DictionaryHeading heading}) {
-    if (heading.reading.isEmpty) {
-      return [];
-    }
+    if (heading.reading.isEmpty) return [];
 
-    return _database.dictionaryHeadings
-            .getSync(DictionaryHeading.hash(term: heading.term, reading: ''))
-            ?.frequencies
-            .where((frequency) =>
-                !frequency.dictionary.value!.isHidden(targetLanguage))
-            .toList() ??
-        [];
+    final rows = _database.dictionaryFrequencys
+        .where()
+        .termEqualTo(heading.term)
+        .findAllSync()
+        .where((f) => f.reading.isEmpty);
+
+    final dictsById = <int, Dictionary>{
+      for (final d in _database.dictionarys.where().findAllSync()) d.id: d,
+    };
+
+    return rows.where((f) {
+      final dict = dictsById[f.dictionaryId];
+      if (dict == null) return false;
+      return !dict.isHidden(targetLanguage);
+    }).toList();
   }
 
   /// Check if the database is still open or has the app been flagged to be

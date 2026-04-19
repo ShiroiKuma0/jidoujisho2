@@ -82,9 +82,12 @@ class _StorageBenchmarkDialogState extends State<StorageBenchmarkDialog> {
       return;
     }
 
-    // Sample 100 random heading terms from the database.
-    final totalHeadings = database.dictionaryHeadings.countSync();
-    if (totalHeadings == 0) {
+    // Sample random term strings from the flat-schema entries
+    // collection. Entries are the v2 equivalent of what headings used
+    // to key; duplicates are fine since the benchmark measures average
+    // search latency over arbitrary realistic inputs.
+    final totalEntries = database.dictionaryEntrys.countSync();
+    if (totalEntries == 0) {
       setState(() {
         _benchmarking = false;
         _benchmarkResult = 'No dictionary data — import a dictionary first.';
@@ -96,20 +99,20 @@ class _StorageBenchmarkDialogState extends State<StorageBenchmarkDialog> {
     final rng = math.Random(0xC0FFEE);
     final sampleOffsets = List<int>.generate(
       sampleSize,
-      (_) => rng.nextInt(totalHeadings),
+      (_) => rng.nextInt(totalEntries),
     );
 
     // Pull terms via `offset+limit`. `findAllSync` with limit 1 is cheap.
     final terms = <String>[];
     for (final offset in sampleOffsets) {
-      final headings = database.dictionaryHeadings
+      final entries = database.dictionaryEntrys
           .where()
           .anyTerm()
           .offset(offset)
           .limit(1)
           .findAllSync();
-      if (headings.isNotEmpty) {
-        terms.add(headings.first.term);
+      if (entries.isNotEmpty) {
+        terms.add(entries.first.term);
       }
     }
 

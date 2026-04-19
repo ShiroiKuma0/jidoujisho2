@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import 'package:lemmatizerx/lemmatizerx.dart';
 import 'package:isar/isar.dart';
+import 'package:lemmatizerx/lemmatizerx.dart';
 import 'package:yuuna/dictionary.dart';
 import 'package:yuuna/language.dart';
 import 'package:yuuna/models.dart';
@@ -29,7 +28,6 @@ class EnglishLanguage extends Language {
 
   /// Get the singleton instance of this language.
   static EnglishLanguage get instance => _instance;
-
   static final EnglishLanguage _instance =
       EnglishLanguage._privateConstructor();
 
@@ -38,7 +36,7 @@ class EnglishLanguage extends Language {
 
   @override
   List<String> textToWords(String text) {
-    List<String> splitText = text.splitWithDelim(RegExp(r'[-\n\r\s]+'));
+    final splitText = text.splitWithDelim(RegExp(r'[-\n\r\s]+'));
     return splitText
         .mapIndexed((index, element) {
           if (index.isEven && index + 1 < splitText.length) {
@@ -54,21 +52,10 @@ class EnglishLanguage extends Language {
   }
 }
 
-/// Top-level function for use in compute. See [Language] for details.
-Future<int?> prepareSearchResultsEnglishLanguage(
-    DictionarySearchParams params) async {
-  final Lemmatizer lemmatizer = Lemmatizer();
-  final Isar database = await Isar.open(
-    globalSchemas,
-    directory: params.directoryPath,
-    maxSizeMiB: 8192,
-  );
-
-  int bestLength = 0;
-  String searchTerm = params.searchTerm.toLowerCase().trim();
-
-  /// Handles contractions well enough.
-  searchTerm = searchTerm
+/// Expand common English contractions in the search term so that
+/// "I'm" matches "I am", "won't" matches "will not", etc.
+String _expandContractions(String input) {
+  return input
       .replaceAll('won\'t', 'will not')
       .replaceAll('can\'t', 'cannot')
       .replaceAll('i\'m', 'i am')
@@ -79,93 +66,100 @@ Future<int?> prepareSearchResultsEnglishLanguage(
       .replaceAll('\'s', ' is')
       .replaceAll('\'re', ' are')
       .replaceAll('\'d', ' would')
-      .replaceAll('won’t', 'will not')
-      .replaceAll('can’t', 'cannot')
-      .replaceAll('i’m', 'i am')
-      .replaceAll('ain’t', 'is not')
-      .replaceAll('’ll', ' will')
-      .replaceAll('n’t', ' not')
-      .replaceAll('’ve', ' have')
-      .replaceAll('’s', ' is')
-      .replaceAll('’re', ' are')
-      .replaceAll('’d', ' would');
+      // Curly-quote variants.
+      .replaceAll('won\u2019t', 'will not')
+      .replaceAll('can\u2019t', 'cannot')
+      .replaceAll('i\u2019m', 'i am')
+      .replaceAll('ain\u2019t', 'is not')
+      .replaceAll('\u2019ll', ' will')
+      .replaceAll('n\u2019t', ' not')
+      .replaceAll('\u2019ve', ' have')
+      .replaceAll('\u2019s', ' is')
+      .replaceAll('\u2019re', ' are')
+      .replaceAll('\u2019d', ' would');
+}
 
-  if (searchTerm.isEmpty) {
-    return null;
+/// Top-level function for use in compute.
+///
+/// English search has a few extra wrinkles vs the standard latin path:
+///   * contractions are expanded before searching
+///   * the candidate-prefix split keeps three leading words (not just one)
+///     so that compound expressions like "give it up" can match
+///   * the last word in each prefix is lemmatised so "running" can also
+///     match "run"
+Future<SearchResultData?> prepareSearchResultsEnglishLanguage(
+    DictionarySearchParams params) async {
+  final lemmatizer = Lemmatizer();
+  final database = await Isar.open(
+    globalSchemas,
+    directory: params.directoryPath,
+    maxSizeMiB: 8192,
+  );
+
+  String searchTerm = _expandContractions(params.searchTerm.toLowerCase().trim());
+  if (searchTerm.isEmpty) return null;
+
+  final maxGroups = params.maximumDictionaryTermsInResult;
+  final builder =
+      SearchResultBuilder(searchTerm: searchTerm, maxGroups: maxGroups);
+
+  int entryFetchLimit() {
+    final remaining = builder.remainingGroups();
+    if (remaining <= 0) return 0;
+    return remaining * 8;
   }
 
-  int maximumHeadings = params.maximumDictionarySearchResults;
-
-  Map<int, DictionaryHeading> uniqueHeadingsById = {};
-
-  int limit() {
-    return maximumHeadings - uniqueHeadingsById.length;
-  }
-
-  bool shouldSearchWildcards = params.searchWithWildcards &&
+  final shouldSearchWildcards = params.searchWithWildcards &&
       (searchTerm.contains('*') || searchTerm.contains('?'));
 
   if (shouldSearchWildcards) {
-    bool noExactMatches = database.dictionaryHeadings
+    final noExactMatches = database.dictionaryEntrys
         .where()
         .termEqualTo(searchTerm)
         .isEmptySync();
 
     if (noExactMatches) {
-      String matchesTerm = searchTerm;
-
-      List<DictionaryHeading> termMatchHeadings = [];
-
-      bool questionMarkOnly = !matchesTerm.contains('*');
-      String noAsterisks = searchTerm
-          .replaceAll('※', '*')
-          .replaceAll('？', '?')
+      final matchesTerm = searchTerm;
+      final questionMarkOnly = !matchesTerm.contains('*');
+      final noAsterisks = searchTerm
+          .replaceAll('\u203B', '*')
+          .replaceAll('\uFF1F', '?')
           .replaceAll('*', '');
 
-      if (params.maximumDictionaryTermsInResult > uniqueHeadingsById.length) {
+      final lim = entryFetchLimit();
+      if (lim > 0) {
+        List<DictionaryEntry> entries;
         if (questionMarkOnly) {
-          termMatchHeadings = database.dictionaryHeadings
+          entries = database.dictionaryEntrys
               .where()
               .termLengthEqualTo(searchTerm.length)
               .filter()
               .termMatches(matchesTerm, caseSensitive: false)
-              .and()
-              .entriesIsNotEmpty()
-              .limit(maximumHeadings - uniqueHeadingsById.length)
+              .limit(lim)
               .findAllSync();
         } else {
-          termMatchHeadings = database.dictionaryHeadings
+          entries = database.dictionaryEntrys
               .where()
               .termLengthGreaterThan(noAsterisks.length, include: true)
               .filter()
               .termMatches(matchesTerm, caseSensitive: false)
-              .and()
-              .entriesIsNotEmpty()
-              .limit(maximumHeadings - uniqueHeadingsById.length)
+              .limit(lim)
               .findAllSync();
         }
+        builder.addEntries(entries);
+        if (entries.isNotEmpty) builder.recordMatchLength(searchTerm.length);
       }
-
-      uniqueHeadingsById.addEntries(
-        termMatchHeadings.map(
-          (heading) => MapEntry(heading.id, heading),
-        ),
-      );
     }
   } else {
-    Map<int, List<DictionaryHeading>> termExactResultsByLength = {};
-    Map<int, List<DictionaryHeading>> termDeinflectedResultsByLength = {};
-    Map<int, List<DictionaryHeading>> termStartsWithResultsByLength = {};
-
+    // Build the candidate-prefix list — preserve the original three-word
+    // unrolling logic so multi-word expressions can match.
     List<String> segments = searchTerm.splitWithDelim(RegExp('[ -\']'));
+    if (segments.length > 20) segments = segments.sublist(0, 10);
 
-    if (segments.length > 20) {
-      segments = segments.sublist(0, 10);
-    }
     if (segments.length >= 3) {
-      String firstWord = segments.removeAt(0);
-      String secondWord = segments.removeAt(0);
-      String thirdWord = segments.removeAt(0);
+      final firstWord = segments.removeAt(0);
+      final secondWord = segments.removeAt(0);
+      final thirdWord = segments.removeAt(0);
       segments = [
         if (firstWord.length > 3)
           if (firstWord.split('').length > 3) ...[
@@ -199,163 +193,95 @@ Future<int?> prepareSearchResultsEnglishLanguage(
           thirdWord,
       ];
     } else {
-      String firstWord = segments.removeAt(0);
+      final firstWord = segments.removeAt(0);
       segments = [
         if (firstWord.length >= 3) ...firstWord.split('') else firstWord,
       ];
     }
 
+    final exactByLength = <int, List<DictionaryEntry>>{};
+    final deinflectedByLength = <int, List<DictionaryEntry>>{};
+    final startsWithByLength = <int, List<DictionaryEntry>>{};
+
     for (int i = 0; i < segments.length; i++) {
-      String partialTerm = segments
+      final partialTerm = segments
           .sublist(0, segments.length - i)
           .join()
           .replaceAll(RegExp(r'[^\p{L}\p{M} -]', unicode: true), '');
 
-      if (partialTerm.endsWith(' ')) {
-        continue;
-      }
+      if (partialTerm.endsWith(' ')) continue;
+      if (entryFetchLimit() <= 0) break;
 
-      List<String> blocks = partialTerm.split(' ');
-      String lastBlock = blocks.removeLast();
-
-      List<String> possibleDeinflections = lemmatizer
+      // Lemmatise the trailing word for deinflection candidates.
+      final blocks = partialTerm.split(' ');
+      final lastBlock = blocks.removeLast();
+      final possibleDeinflections = lemmatizer
           .lemmas(lastBlock)
           .map((lemma) => lemma.lemmas)
           .flattened
           .where((e) => e.isNotEmpty)
-          .map(
-            (e) => [...blocks, e].join(),
-          )
+          .map((e) => [...blocks, e].join())
           .toList();
 
-      List<DictionaryHeading> termExactResults = [];
-      List<DictionaryHeading> termDeinflectedResults = [];
-      List<DictionaryHeading> termStartsWithResults = [];
-
-      termExactResults = database.dictionaryHeadings
+      // Exact term match.
+      final exact = database.dictionaryEntrys
           .where(sort: Sort.desc)
           .termEqualTo(partialTerm)
-          .limit(limit())
+          .limit(entryFetchLimit())
           .findAllSync();
 
-      if (possibleDeinflections.isNotEmpty) {
-        termDeinflectedResults = database.dictionaryHeadings
+      // Deinflected term match (only if there are candidate lemmas).
+      List<DictionaryEntry> deinflected = const <DictionaryEntry>[];
+      if (possibleDeinflections.isNotEmpty && entryFetchLimit() > 0) {
+        deinflected = database.dictionaryEntrys
             .where()
             .anyOf<String, String>(
                 possibleDeinflections, (q, term) => q.termEqualTo(term))
-            .limit(limit())
+            .limit(entryFetchLimit())
             .findAllSync();
       }
 
-      if (partialTerm.length >= 3) {
-        termStartsWithResults = database.dictionaryHeadings
+      // Starts-with for non-trivial prefixes.
+      List<DictionaryEntry> startsWith = const <DictionaryEntry>[];
+      if (partialTerm.length >= 3 && entryFetchLimit() > 0) {
+        startsWith = database.dictionaryEntrys
             .where()
             .termStartsWith(partialTerm)
             .sortByTermLength()
-            .limit(limit())
+            .limit(entryFetchLimit())
             .findAllSync();
       }
 
-      if (termExactResults.isNotEmpty) {
-        termExactResultsByLength[partialTerm.length] = termExactResults;
-        bestLength = partialTerm.length;
+      if (exact.isNotEmpty) {
+        exactByLength[partialTerm.length] = exact;
+        builder.recordMatchLength(partialTerm.length);
       }
-      if (termDeinflectedResults.isNotEmpty) {
-        termDeinflectedResultsByLength[partialTerm.length] =
-            termDeinflectedResults;
-        bestLength = partialTerm.length;
+      if (deinflected.isNotEmpty) {
+        deinflectedByLength[partialTerm.length] = deinflected;
+        builder.recordMatchLength(partialTerm.length);
       }
-      if (termStartsWithResults.isNotEmpty) {
-        termStartsWithResultsByLength[partialTerm.length] =
-            termStartsWithResults;
-        bestLength = partialTerm.length;
+      if (startsWith.isNotEmpty) {
+        startsWithByLength[partialTerm.length] = startsWith;
+        builder.recordMatchLength(partialTerm.length);
       }
     }
 
+    // Insertion order: exact > deinflected, both walked from longest
+    // prefix to shortest. Starts-with entries come last (or earlier if
+    // wildcard mode requested them sooner — see the original logic).
     for (int length = searchTerm.length; length > 0; length--) {
-      List<MapEntry<int, DictionaryHeading>> exactHeadingsToAdd = [
-        ...(termExactResultsByLength[length] ?? [])
-            .map((heading) => MapEntry(heading.id, heading)),
-      ];
-
-      List<MapEntry<int, DictionaryHeading>> deinflectedHeadingsToAdd = [
-        ...(termDeinflectedResultsByLength[length] ?? [])
-            .map((entry) => MapEntry(entry.id, entry)),
-      ];
-
-      uniqueHeadingsById.addEntries(exactHeadingsToAdd);
-      uniqueHeadingsById.addEntries(deinflectedHeadingsToAdd);
-
-      if (params.searchWithWildcards) {
-        for (int length = searchTerm.length; length > 0; length--) {
-          List<MapEntry<int, DictionaryHeading>> startsWithHeadingsToAdd = [
-            ...(termStartsWithResultsByLength[length] ?? [])
-                .map((heading) => MapEntry(heading.id, heading)),
-          ];
-
-          uniqueHeadingsById.addEntries(startsWithHeadingsToAdd);
-        }
-      }
+      final batch = exactByLength[length];
+      if (batch != null) builder.addEntries(batch);
     }
-
-    if (!params.searchWithWildcards) {
-      for (int length = searchTerm.length; length > 0; length--) {
-        List<MapEntry<int, DictionaryHeading>> startsWithHeadingsToAdd = [
-          ...(termStartsWithResultsByLength[length] ?? [])
-              .map((heading) => MapEntry(heading.id, heading)),
-        ];
-
-        uniqueHeadingsById.addEntries(startsWithHeadingsToAdd);
-      }
+    for (int length = searchTerm.length; length > 0; length--) {
+      final batch = deinflectedByLength[length];
+      if (batch != null) builder.addEntries(batch);
+    }
+    for (int length = searchTerm.length; length > 0; length--) {
+      final batch = startsWithByLength[length];
+      if (batch != null) builder.addEntries(batch);
     }
   }
 
-  List<DictionaryHeading> headings =
-      uniqueHeadingsById.values.where((e) => e.entries.isNotEmpty).toList();
-
-  if (headings.isEmpty) {
-    return null;
-  }
-
-  DictionarySearchResult unsortedResult = DictionarySearchResult(
-    searchTerm: searchTerm,
-    bestLength: bestLength,
-  );
-  unsortedResult.headings.addAll(headings);
-
-  late int resultId;
-  database.writeTxnSync(() async {
-    database.dictionarySearchResults.deleteBySearchTermSync(searchTerm);
-    resultId = database.dictionarySearchResults.putSync(unsortedResult);
-  });
-
-  preloadResultSync(resultId);
-
-  headings = headings.sublist(
-      0, min(headings.length, params.maximumDictionaryTermsInResult));
-  List<int> headingIds = headings.map((e) => e.id).toList();
-
-  DictionarySearchResult result = DictionarySearchResult(
-    id: resultId,
-    searchTerm: searchTerm,
-    bestLength: bestLength,
-    headingIds: headingIds,
-  );
-
-  database.writeTxnSync(() async {
-    resultId = database.dictionarySearchResults.putSync(result);
-
-    int countInSameHistory = database.dictionarySearchResults.countSync();
-
-    if (params.maximumDictionarySearchResults < countInSameHistory) {
-      int surplus = countInSameHistory - params.maximumDictionarySearchResults;
-      database.dictionarySearchResults
-          .where()
-          .limit(surplus)
-          .build()
-          .deleteAllSync();
-    }
-  });
-
-  return resultId;
+  return builder.build(database);
 }

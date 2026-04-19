@@ -1,67 +1,75 @@
 import 'package:collection/collection.dart';
 import 'package:yuuna/dictionary.dart';
-import 'package:isar/isar.dart';
 
-part 'dictionary_heading.g.dart';
-
-/// A database entity that that effectively acts as the primary key for a
-/// dictionary search. Dictionary headings, which specify the [term] and
-/// [reading], may point to multiple dictionary entries.
+/// An in-memory view model that groups `(term, reading)` together with
+/// its dictionary entries, pitch-accent rows, frequency rows, and
+/// display tags.
 ///
-/// Dictionary keys are shared between multiple imported dictionaries.
-@Collection()
+/// Previously a persisted Isar collection; now assembled on demand by
+/// `AppModel.searchDictionary` after a search worker returns a
+/// [SearchResultData]. Keeping this as a plain Dart class preserves the
+/// interface that creator fields (meaning, frequency, pitch accent,
+/// term, reading, sentence, tags…) and language override widgets have
+/// been relying on, while removing the storage cost and link-table
+/// traversal of the Isar version.
 class DictionaryHeading {
-  /// A heading must have a term and a reading. Different languages may perform
-  /// searches based on only the term or only the reading, or both.
+  /// Build a heading from its constituent parts. Callers are
+  /// responsible for populating [entries], [pitches], [frequencies] and
+  /// [tags] with rows that actually apply to `(term, reading)`.
   DictionaryHeading({
     required this.term,
     this.reading = '',
-  });
+    List<DictionaryEntry>? entries,
+    List<DictionaryPitch>? pitches,
+    List<DictionaryFrequency>? frequencies,
+    List<DictionaryTag>? tags,
+  })  : entries = entries ?? <DictionaryEntry>[],
+        pitches = pitches ?? <DictionaryPitch>[],
+        frequencies = frequencies ?? <DictionaryFrequency>[],
+        tags = tags ?? <DictionaryTag>[];
 
-  /// Function to generate a lookup ID for heading by its unique string key.
+  /// Function to generate a stable integer lookup id for a heading by
+  /// its `(term, reading)` composite key. Retained for callers that
+  /// need to produce a hash key compatible with older Isar-backed code
+  /// paths (e.g. single-kanji prioritisation during migration).
   static int hash({required String term, required String reading}) {
     return fastHash('$term/$reading');
   }
 
-  /// Identifier for database purposes.
-  Id get id => hash(term: term, reading: reading);
+  /// The stable integer id for this heading's `(term, reading)` pair.
+  int get id => hash(term: term, reading: reading);
 
-  /// Sum of popularity of all dictionary entries belonging to this entry.
-  @ignore
-  double get popularitySum {
-    return entries.map((entry) => entry.popularity).sum;
-  }
-
-  /// A word or phrase. This effectively acts as the headword, or the primary
-  /// concept to be learned or represented in a dictionary entry.
-  @Index(type: IndexType.value, caseSensitive: false)
+  /// The headword.
   final String term;
 
-  /// An alternate form of the term. This is useful for languages which have an
-  /// which must distinguish different keys which share the same term, but may
-  /// have multiple pronunciations.
-  @Index(type: IndexType.value, caseSensitive: false)
+  /// The reading (alternate form). Empty for languages that do not use
+  /// distinct readings.
   final String reading;
 
-  /// Term of the reading. Used for prioritising starts with matches.
-  @Index()
+  /// Length of [term]. Mirrors the old index field so call sites can
+  /// read it the same way.
   int get termLength => term.length;
 
-  /// A heading may have multiple dictionary entries.
-  @Backlink(to: 'heading')
-  final IsarLinks<DictionaryEntry> entries = IsarLinks<DictionaryEntry>();
+  /// All dictionary entries that share this `(term, reading)` pair,
+  /// typically across multiple imported dictionaries. Assembled at
+  /// search time.
+  final List<DictionaryEntry> entries;
 
-  /// A heading may have multiple pitch data.
-  @Backlink(to: 'heading')
-  final IsarLinks<DictionaryPitch> pitches = IsarLinks<DictionaryPitch>();
+  /// All pitch-accent annotations that apply to this `(term, reading)`.
+  final List<DictionaryPitch> pitches;
 
-  /// A heading may have multiple tags.
-  final IsarLinks<DictionaryTag> tags = IsarLinks<DictionaryTag>();
+  /// All frequency annotations that apply to this `(term, reading)`.
+  final List<DictionaryFrequency> frequencies;
 
-  /// A heading may have multiple frequency data.
-  @Backlink(to: 'heading')
-  final IsarLinks<DictionaryFrequency> frequencies =
-      IsarLinks<DictionaryFrequency>();
+  /// Display-metadata tags applicable to this heading. Populated by
+  /// `AppModel.searchDictionary` from the per-entry `entryTagsRaw` /
+  /// `headingTagsRaw` strings plus the per-dictionary tag lookup tables.
+  final List<DictionaryTag> tags;
+
+  /// Sum of popularity of all dictionary entries belonging to this
+  /// heading.
+  double get popularitySum =>
+      entries.map((entry) => entry.popularity).sum;
 
   @override
   bool operator ==(Object other) =>
@@ -70,5 +78,5 @@ class DictionaryHeading {
       reading == other.reading;
 
   @override
-  int get hashCode => term.hashCode * reading.hashCode;
+  int get hashCode => Object.hash(term, reading);
 }

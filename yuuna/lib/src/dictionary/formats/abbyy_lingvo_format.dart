@@ -8,14 +8,12 @@ import 'package:path/path.dart' as path;
 import 'package:yuuna/dictionary.dart';
 import 'package:yuuna/i18n/strings.g.dart';
 
-/// A dictionary format for archives following the ABBYY Lingvo or DSL format
+/// A dictionary format for files following the ABBYY Lingvo or DSL format
 /// compatible with GoldenDict.
 ///
-/// Details on the format can be found here:
+/// Details on the format:
 /// http://lingvo.helpmax.net/en/troubleshooting/dsl-compiler/dsl-dictionary-structure/
 class AbbyyLingvoFormat extends DictionaryFormat {
-  /// Define a format with the given metadata that has its behaviour for
-  /// import, search and display defined with af set of top-level helper methods.
   AbbyyLingvoFormat._privateConstructor()
       : super(
           uniqueKey: 'abbyy_lingvo',
@@ -32,24 +30,24 @@ class AbbyyLingvoFormat extends DictionaryFormat {
           prepareFrequencies: prepareFrequenciesAbbyyLingvoFormat,
         );
 
-  /// Get the singleton instance of this dictionary format.
   static AbbyyLingvoFormat get instance => _instance;
-
   static final AbbyyLingvoFormat _instance =
       AbbyyLingvoFormat._privateConstructor();
 }
 
-/// Top-level function for use in compute. See [DictionaryFormat] for details.
+/// Top-level: copy the .dsl into the working directory, decoding from
+/// UTF-16 if needed.
 Future<void> prepareDirectoryAbbyyLingvoFormat(
     PrepareDirectoryParams params) async {
-  String dictionaryFilePath =
+  final dictionaryFilePath =
       path.join(params.resourceDirectory.path, 'dictionary.dsl');
-  File originalFile = params.file;
-  File newFile = File(dictionaryFilePath);
+  final originalFile = params.file;
+  final newFile = File(dictionaryFilePath);
 
   if (params.charset.startsWith('UTF-16')) {
-    final utf16CodeUnits = originalFile.readAsBytesSync().buffer.asUint16List();
-    var converted = String.fromCharCodes(utf16CodeUnits);
+    final utf16CodeUnits =
+        originalFile.readAsBytesSync().buffer.asUint16List();
+    final converted = String.fromCharCodes(utf16CodeUnits);
     newFile.createSync();
     newFile.writeAsStringSync(converted);
   } else {
@@ -57,32 +55,34 @@ Future<void> prepareDirectoryAbbyyLingvoFormat(
   }
 }
 
-/// Top-level function for use in compute. See [DictionaryFormat] for details.
+/// Top-level: dictionary name comes from the `#NAME` directive line.
 Future<String> prepareNameAbbyyLingvoFormat(
     PrepareDirectoryParams params) async {
-  String dictionaryFilePath =
+  final dictionaryFilePath =
       path.join(params.resourceDirectory.path, 'dictionary.dsl');
-  File dictionaryFile = File(dictionaryFilePath);
+  final dictionaryFile = File(dictionaryFilePath);
 
-  String nameLine =
+  final nameLine =
       dictionaryFile.readAsLinesSync().first.replaceFirst('#NAME', '').trim();
 
-  String name = nameLine.substring(1, nameLine.length - 1);
-  return name;
+  return nameLine.substring(1, nameLine.length - 1);
 }
 
-/// Top-level function for use in compute. See [DictionaryFormat] for details.
+/// Batch size for entry writes.
+const int _kEntryWriteBatch = 1000;
+
+/// Top-level: parse the .dsl line by line, build entry rows with zstd-
+/// compressed definitions, write in batches.
 Future<void> prepareEntriesAbbyyLingvoFormat({
   required PrepareDictionaryParams params,
   required Isar isar,
 }) async {
-  int count = 0;
-
-  String dictionaryFilePath =
+  final dictionaryFilePath =
       path.join(params.resourceDirectory.path, 'dictionary.dsl');
-  File dictionaryFile = File(dictionaryFilePath);
+  final dictionaryFile = File(dictionaryFilePath);
 
-  String text = dictionaryFile
+  // Strip / canonicalise common DSL inline markup.
+  final text = dictionaryFile
       .readAsStringSync()
       .replaceAll('<br>', '\n')
       .replaceAll('[', '<')
@@ -99,67 +99,91 @@ Future<void> prepareEntriesAbbyyLingvoFormat({
       .replaceAll('>>', '')
       .replaceAll(RegExp('<[^<]+?>'), '');
 
-  List<String> lines = text.split('\n');
+  final lines = text.split('\n');
+  final dictionaryId = params.dictionary.id;
+  final pendingEntries = <DictionaryEntry>[];
+  int count = 0;
+
+  Future<void> flushPending() async {
+    if (pendingEntries.isEmpty) return;
+    final toWrite = List<DictionaryEntry>.from(pendingEntries);
+    pendingEntries.clear();
+    isar.writeTxnSync(() {
+      isar.dictionaryEntrys.putAllSync(toWrite);
+    });
+  }
 
   String term = '';
-
   final buffer = StringBuffer();
 
-  for (String line in lines) {
-    if (line.startsWith('#')) {
-      continue;
-    }
+  for (final line in lines) {
+    if (line.startsWith('#')) continue;
 
     if (line.characters.isNotEmpty &&
         line.characters.first.codeUnits.first == 9) {
+      // Tab-indented = part of the current term's definition.
       buffer.writeln(line);
     } else {
-      String definition = buffer.toString();
+      // New term boundary — flush the previous one.
+      final definition = buffer.toString();
       buffer.clear();
 
       if (term.isNotEmpty && definition.isNotEmpty) {
-        int headingId = DictionaryHeading.hash(term: term, reading: '');
-        DictionaryHeading heading =
-            isar.dictionaryHeadings.getSync(headingId) ??
-                DictionaryHeading(term: term);
-
-        DictionaryEntry entry = DictionaryEntry(
-          definitions: [definition],
+        final compressed = await DefinitionCodec.encode([definition]);
+        pendingEntries.add(DictionaryEntry(
+          term: term,
+          reading: '',
+          dictionaryId: dictionaryId,
           popularity: 0,
-        );
+          compressedDefinitions: compressed,
+        ));
 
-        entry.heading.value = heading;
-        entry.dictionary.value = params.dictionary;
-        isar.dictionaryEntrys.putSync(entry);
-
-        heading.entries.add(entry);
-
-        isar.dictionaryHeadings.putSync(heading);
-
-        params.send(t.import_found_entry(count: count));
+        if (pendingEntries.length >= _kEntryWriteBatch) {
+          await flushPending();
+        }
 
         count++;
+        if ((count & 0xFF) == 0) {
+          params.send(t.import_found_entry(count: count));
+        }
       }
 
       term = line.trim();
     }
   }
+
+  // Final pending entry (last term in file).
+  final definition = buffer.toString();
+  if (term.isNotEmpty && definition.isNotEmpty) {
+    final compressed = await DefinitionCodec.encode([definition]);
+    pendingEntries.add(DictionaryEntry(
+      term: term,
+      reading: '',
+      dictionaryId: dictionaryId,
+      popularity: 0,
+      compressedDefinitions: compressed,
+    ));
+    count++;
+  }
+
+  await flushPending();
+  params.send(t.import_found_entry(count: count));
 }
 
-/// Top-level function for use in compute. See [DictionaryFormat] for details.
-void prepareTagsAbbyyLingvoFormat({
+/// Top-level: DSL has no tag bank.
+Future<void> prepareTagsAbbyyLingvoFormat({
   required PrepareDictionaryParams params,
   required Isar isar,
 }) async {}
 
-/// Top-level function for use in compute. See [DictionaryFormat] for details.
-void preparePitchesAbbyyLingvoFormat({
+/// Top-level: DSL has no pitch data.
+Future<void> preparePitchesAbbyyLingvoFormat({
   required PrepareDictionaryParams params,
   required Isar isar,
 }) async {}
 
-/// Top-level function for use in compute. See [DictionaryFormat] for details.
-void prepareFrequenciesAbbyyLingvoFormat({
+/// Top-level: DSL has no frequency data.
+Future<void> prepareFrequenciesAbbyyLingvoFormat({
   required PrepareDictionaryParams params,
   required Isar isar,
 }) async {}

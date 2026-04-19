@@ -58,6 +58,8 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
   double _gestureVolume = 0.5;
   double _gestureMaxVolume = 15;
   double _gestureFontSize = 20;
+  double _gestureFontSizeSecondary = 20;
+  bool _lastFontSwipeWasSecondary = false;
   bool _showVolumeIndicator = false;
   bool _showFontSizeIndicator = false;
 
@@ -85,6 +87,17 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     return k.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
   }
 
+  /// Stable identifier for the currently-attached secondary (translation)
+  /// book, derived from its URL. Keeping this per-secondary — rather than
+  /// per-primary — lets the user reuse the same translation book across
+  /// multiple primary books without settings bleeding between them.
+  /// Returns a fallback if no secondary is attached yet; callers should
+  /// only read real settings when `_hasSecondary` is true.
+  String _safeSecondaryBookKey() {
+    String k = _secondaryUrl ?? 'secondary_default';
+    return 'sec_${k.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
+  }
+
   Future<void> _initGestureVolume() async {
     try {
       final result = await _volumeChannel.invokeMethod('getVolume');
@@ -104,26 +117,54 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     } catch (_) {}
   }
 
-  void _onEdgeVerticalDragUpdate(DragUpdateDetails d, bool isRight) {
+  /// Read the secondary controller's current font size from its
+  /// localStorage. Both controllers technically share the same origin
+  /// so the `fontSize` key is shared — but this still gives us an
+  /// accurate starting point for the swipe gesture.
+  Future<void> _initGestureFontSizeSecondary() async {
+    try {
+      if (_secondaryController == null) return;
+      final raw = await _secondaryController!.evaluateJavascript(
+          source: 'window.localStorage.getItem("fontSize") || "20"');
+      String cleaned = raw.toString().replaceAll('"', '');
+      _gestureFontSizeSecondary = double.tryParse(cleaned) ?? 20;
+    } catch (_) {}
+  }
+
+  void _onEdgeVerticalDragUpdate(
+      DragUpdateDetails d, bool isRight, bool isSecondary) {
     double delta = -d.delta.dy;
     if (isRight) {
-      // Volume: map drag to volume steps
+      // Volume: map drag to volume steps. Global — not per book.
       double step = delta / 8;
       _gestureVolume = (_gestureVolume + step).clamp(0, _gestureMaxVolume);
       _volumeChannel.invokeMethod(
           'setVolume', {'level': _gestureVolume.round()});
       setState(() => _showVolumeIndicator = true);
     } else {
-      // Font size: map drag to font size
+      // Font size: route to the controller for the half being swiped.
+      final InAppWebViewController? target =
+          isSecondary ? _secondaryController : _controller;
+      if (target == null) return;
       double step = delta / 12;
-      _gestureFontSize = (_gestureFontSize + step).clamp(8, 60);
-      _controller.evaluateJavascript(
+      if (isSecondary) {
+        _gestureFontSizeSecondary =
+            (_gestureFontSizeSecondary + step).clamp(8, 60);
+      } else {
+        _gestureFontSize = (_gestureFontSize + step).clamp(8, 60);
+      }
+      final int px =
+          (isSecondary ? _gestureFontSizeSecondary : _gestureFontSize)
+              .round();
+      target.evaluateJavascript(
+          source: 'window.localStorage.setItem("fontSize", "$px")');
+      target.evaluateJavascript(
           source:
-              'window.localStorage.setItem("fontSize", "${_gestureFontSize.round()}")');
-      _controller.evaluateJavascript(
-          source:
-              'document.querySelector(".book-content").style.fontSize = "${_gestureFontSize.round()}px"');
-      setState(() => _showFontSizeIndicator = true);
+              'document.querySelector(".book-content").style.fontSize = "${px}px"');
+      setState(() {
+        _showFontSizeIndicator = true;
+        _lastFontSwipeWasSecondary = isSecondary;
+      });
     }
   }
 
@@ -138,26 +179,62 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
   }
 
   Widget _buildEdgeGestures(Widget child) {
+    final double fontStripWidth =
+        MediaQuery.of(context).size.width * 0.15;
+
+    // Left edge handles font size. In split-screen mode we split the
+    // strip vertically at `_splitRatio` so each half controls its own
+    // book's font size.
+    Widget leftEdge;
+    if (_secondaryShown) {
+      leftEdge = Column(
+        children: [
+          Expanded(
+            flex: (_splitRatio * 100).round(),
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onVerticalDragUpdate: (d) =>
+                  _onEdgeVerticalDragUpdate(d, false, false),
+              onVerticalDragEnd: (_) => _onEdgeVerticalDragEnd(false),
+            ),
+          ),
+          Expanded(
+            flex: 100 - (_splitRatio * 100).round(),
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onVerticalDragUpdate: (d) =>
+                  _onEdgeVerticalDragUpdate(d, false, true),
+              onVerticalDragEnd: (_) => _onEdgeVerticalDragEnd(false),
+            ),
+          ),
+        ],
+      );
+    } else {
+      leftEdge = GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onVerticalDragUpdate: (d) =>
+            _onEdgeVerticalDragUpdate(d, false, false),
+        onVerticalDragEnd: (_) => _onEdgeVerticalDragEnd(false),
+      );
+    }
+
     return Stack(
       children: [
         child,
-        // Left edge — font size
+        // Left edge — font size (per half when split).
         Positioned(
           left: 0, top: 0, bottom: 0,
-          width: MediaQuery.of(context).size.width * 0.15,
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onVerticalDragUpdate: (d) => _onEdgeVerticalDragUpdate(d, false),
-            onVerticalDragEnd: (_) => _onEdgeVerticalDragEnd(false),
-          ),
+          width: fontStripWidth,
+          child: leftEdge,
         ),
-        // Right edge — volume
+        // Right edge — volume. Global, full-height regardless of split.
         Positioned(
           right: 0, top: 0, bottom: 0,
           width: MediaQuery.of(context).size.width * 0.15,
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
-            onVerticalDragUpdate: (d) => _onEdgeVerticalDragUpdate(d, true),
+            onVerticalDragUpdate: (d) =>
+                _onEdgeVerticalDragUpdate(d, true, false),
             onVerticalDragEnd: (_) => _onEdgeVerticalDragEnd(true),
           ),
         ),
@@ -206,10 +283,18 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
                         color: Color(0xFFFFFF00), size: 28),
                     const SizedBox(height: 4),
                     Text(
-                      '${_gestureFontSize.round()}px',
+                      '${(_lastFontSwipeWasSecondary ? _gestureFontSizeSecondary : _gestureFontSize).round()}px',
                       style: const TextStyle(
                           color: Color(0xFFFFFF00), fontSize: 14),
                     ),
+                    if (_secondaryShown) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        _lastFontSwipeWasSecondary ? 'translation' : 'primary',
+                        style: const TextStyle(
+                            color: Color(0xFFFFFF00), fontSize: 10),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -339,6 +424,8 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
           ),
           bottomNavigationBar: ReaderAudioToolbar(
             bookKey: widget.item?.uniqueKey ?? 'default',
+            secondaryBookKey:
+                _hasSecondary ? _safeSecondaryBookKey() : null,
             appModel: appModel,
             secondaryShown: _secondaryShown,
             hasSecondary: _hasSecondary,
@@ -448,6 +535,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         await _injectUiTheme(controller);
         await _injectIdbPatch(controller);
         _applyReaderSettings();
+        _initGestureFontSizeSecondary();
       },
       onTitleChanged: (controller, title) async {
         await _injectUiTheme(controller);
@@ -548,12 +636,32 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
   }
 
   /// Apply per-book reader appearance settings via CSS injection.
+  ///
+  /// Primary and secondary (translation) books each have their own stored
+  /// settings keyed by their respective unique keys. Each controller only
+  /// receives its book's settings so they can be configured independently.
   void _applyReaderSettings() async {
-    String key = _safeBookKey();
-    ReaderAppearanceSettings settings =
-        ReaderAppearanceSettings.load(_readerBox, key);
-    String css = settings.toCss().replaceAll('\n', ' ');
-    String js = '''
+    // Primary
+    String primaryKey = _safeBookKey();
+    ReaderAppearanceSettings primarySettings =
+        ReaderAppearanceSettings.load(_readerBox, primaryKey);
+    String primaryCss = primarySettings.toCss().replaceAll('\n', ' ');
+    String primaryJs = _buildAppearanceInjectJs(primaryCss);
+    await _controller.evaluateJavascript(source: primaryJs);
+
+    // Secondary (translation book) — load its own settings.
+    if (_secondaryController != null && _hasSecondary) {
+      String secondaryKey = _safeSecondaryBookKey();
+      ReaderAppearanceSettings secondarySettings =
+          ReaderAppearanceSettings.load(_readerBox, secondaryKey);
+      String secondaryCss = secondarySettings.toCss().replaceAll('\n', ' ');
+      String secondaryJs = _buildAppearanceInjectJs(secondaryCss);
+      await _secondaryController!.evaluateJavascript(source: secondaryJs);
+    }
+  }
+
+  String _buildAppearanceInjectJs(String css) {
+    return '''
       (function() {
         var el = document.getElementById('reader-appearance');
         if (el) el.remove();
@@ -563,10 +671,6 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         document.head.appendChild(s);
       })();
     ''';
-    await _controller.evaluateJavascript(source: js);
-    if (_secondaryController != null) {
-      await _secondaryController!.evaluateJavascript(source: js);
-    }
   }
 
   /// CSS to restyle the ッツ reader UI as yellow-on-black.

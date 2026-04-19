@@ -153,6 +153,7 @@ class _RecursiveDictionaryPageState
         buildBackButton(),
       ],
       actions: [
+        buildHalfScreenToggleButton(),
         buildSegmentButton(),
         buildCreatorButton(),
         buildSearchButton(),
@@ -239,6 +240,28 @@ class _RecursiveDictionaryPageState
         tooltip: t.back,
         icon: Icons.arrow_back,
         onTap: () async {
+          if (widget.killOnPop) {
+            appModel.shutdown();
+          } else {
+            Navigator.pop(context);
+          }
+        },
+      ),
+    );
+  }
+
+  /// Toggle button that disables the "open full-screen on tap" preference
+  /// and pops this page, returning the user to the previous media view.
+  /// The next word-tap will show the half-screen popup instead.
+  Widget buildHalfScreenToggleButton() {
+    return FloatingSearchBarAction(
+      showIfOpened: true,
+      showIfClosed: true,
+      child: JidoujishoIconButton(
+        tooltip: 'Switch to half-screen dictionary',
+        icon: Icons.fullscreen_exit,
+        onTap: () {
+          appModel.toggleAutoFullScreenDictionary();
           if (widget.killOnPop) {
             appModel.shutdown();
           } else {

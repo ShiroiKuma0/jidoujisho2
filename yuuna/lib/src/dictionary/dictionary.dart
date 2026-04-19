@@ -1,5 +1,4 @@
 import 'package:copy_with_extension/copy_with_extension.dart';
-import 'package:yuuna/dictionary.dart';
 import 'package:isar/isar.dart';
 import 'package:path/path.dart' as path;
 import 'package:yuuna/language.dart';
@@ -8,6 +7,11 @@ part 'dictionary.g.dart';
 
 /// A dictionary that can be imported into the application, encapsulating its
 /// metadata and current preferences.
+///
+/// Backlinks to entries, tags, pitches and frequencies that previous schema
+/// versions kept here have been removed. Those collections now hold a plain
+/// indexed `dictionaryId` field and are queried directly when needed (for
+/// example, when the user removes this dictionary).
 @Collection()
 @CopyWith()
 class Dictionary {
@@ -35,29 +39,13 @@ class Dictionary {
   /// The unique key for the format that the dictionary was sourced from.
   final String formatKey;
 
-  /// The order of this dictionary in terms of user sorting, relative to other
-  /// dictionaries.
+  /// The order of this dictionary in terms of user sorting, relative to
+  /// other dictionaries.
   @Index()
   int order;
 
-  /// A dictionary may have multiple entries.
-  @Backlink(to: 'dictionary')
-  final IsarLinks<DictionaryEntry> entries = IsarLinks<DictionaryEntry>();
-
-  /// A dictionary may have multiple tags.
-  @Backlink(to: 'dictionary')
-  final IsarLinks<DictionaryTag> tags = IsarLinks<DictionaryTag>();
-
-  /// A dictionary may have multiple pitch entries.
-  @Backlink(to: 'dictionary')
-  final IsarLinks<DictionaryPitch> pitches = IsarLinks<DictionaryPitch>();
-
-  /// A dictionary may have multiple frequency entries.
-  @Backlink(to: 'dictionary')
-  final IsarLinks<DictionaryFrequency> frequencies =
-      IsarLinks<DictionaryFrequency>();
-
-  /// Returns the resource path for within the applications documents directory.
+  /// Returns the resource path for within the applications documents
+  /// directory.
   String getBasePath({required String appDirDocPath}) {
     return path.join(appDirDocPath, name);
   }
@@ -67,8 +55,8 @@ class Dictionary {
   @Index()
   List<String> hiddenLanguages;
 
-  /// Languages where this dictionary is collapsed. If a language has set this
-  /// dictionary to hidden, then its language code will be here.
+  /// Languages where this dictionary is collapsed. If a language has set
+  /// this dictionary to collapsed, then its language code will be here.
   @Index()
   List<String> collapsedLanguages;
 

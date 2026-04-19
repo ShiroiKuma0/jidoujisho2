@@ -59,6 +59,19 @@ const DictionaryTagSchema = CollectionSchema(
   deserializeProp: _dictionaryTagDeserializeProp,
   idName: r'isarId',
   indexes: {
+    r'dictionaryId': IndexSchema(
+      id: 3926511253275933290,
+      name: r'dictionaryId',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'dictionaryId',
+          type: IndexType.value,
+          caseSensitive: false,
+        )
+      ],
+    ),
     r'name': IndexSchema(
       id: 879695947855722453,
       name: r'name',
@@ -73,14 +86,7 @@ const DictionaryTagSchema = CollectionSchema(
       ],
     )
   },
-  links: {
-    r'dictionary': LinkSchema(
-      id: 471294922928602766,
-      name: r'dictionary',
-      target: r'Dictionary',
-      single: true,
-    )
-  },
+  links: {},
   embeddedSchemas: {},
   getId: _dictionaryTagGetId,
   getLinks: _dictionaryTagGetLinks,
@@ -163,20 +169,25 @@ Id _dictionaryTagGetId(DictionaryTag object) {
 }
 
 List<IsarLinkBase<dynamic>> _dictionaryTagGetLinks(DictionaryTag object) {
-  return [object.dictionary];
+  return [];
 }
 
 void _dictionaryTagAttach(
-    IsarCollection<dynamic> col, Id id, DictionaryTag object) {
-  object.dictionary
-      .attach(col, col.isar.collection<Dictionary>(), r'dictionary', id);
-}
+    IsarCollection<dynamic> col, Id id, DictionaryTag object) {}
 
 extension DictionaryTagQueryWhereSort
     on QueryBuilder<DictionaryTag, DictionaryTag, QWhere> {
   QueryBuilder<DictionaryTag, DictionaryTag, QAfterWhere> anyIsarId() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(const IdWhereClause.any());
+    });
+  }
+
+  QueryBuilder<DictionaryTag, DictionaryTag, QAfterWhere> anyDictionaryId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'dictionaryId'),
+      );
     });
   }
 }
@@ -246,6 +257,99 @@ extension DictionaryTagQueryWhere
         lower: lowerIsarId,
         includeLower: includeLower,
         upper: upperIsarId,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryTag, DictionaryTag, QAfterWhereClause>
+      dictionaryIdEqualTo(int dictionaryId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'dictionaryId',
+        value: [dictionaryId],
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryTag, DictionaryTag, QAfterWhereClause>
+      dictionaryIdNotEqualTo(int dictionaryId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'dictionaryId',
+              lower: [],
+              upper: [dictionaryId],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'dictionaryId',
+              lower: [dictionaryId],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'dictionaryId',
+              lower: [dictionaryId],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'dictionaryId',
+              lower: [],
+              upper: [dictionaryId],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<DictionaryTag, DictionaryTag, QAfterWhereClause>
+      dictionaryIdGreaterThan(
+    int dictionaryId, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'dictionaryId',
+        lower: [dictionaryId],
+        includeLower: include,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryTag, DictionaryTag, QAfterWhereClause>
+      dictionaryIdLessThan(
+    int dictionaryId, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'dictionaryId',
+        lower: [],
+        upper: [dictionaryId],
+        includeUpper: include,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryTag, DictionaryTag, QAfterWhereClause>
+      dictionaryIdBetween(
+    int lowerDictionaryId,
+    int upperDictionaryId, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'dictionaryId',
+        lower: [lowerDictionaryId],
+        includeLower: includeLower,
+        upper: [upperDictionaryId],
         includeUpper: includeUpper,
       ));
     });
@@ -1001,21 +1105,7 @@ extension DictionaryTagQueryObject
     on QueryBuilder<DictionaryTag, DictionaryTag, QFilterCondition> {}
 
 extension DictionaryTagQueryLinks
-    on QueryBuilder<DictionaryTag, DictionaryTag, QFilterCondition> {
-  QueryBuilder<DictionaryTag, DictionaryTag, QAfterFilterCondition> dictionary(
-      FilterQuery<Dictionary> q) {
-    return QueryBuilder.apply(this, (query) {
-      return query.link(q, r'dictionary');
-    });
-  }
-
-  QueryBuilder<DictionaryTag, DictionaryTag, QAfterFilterCondition>
-      dictionaryIsNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.linkLength(r'dictionary', 0, true, 0, true);
-    });
-  }
-}
+    on QueryBuilder<DictionaryTag, DictionaryTag, QFilterCondition> {}
 
 extension DictionaryTagQuerySortBy
     on QueryBuilder<DictionaryTag, DictionaryTag, QSortBy> {

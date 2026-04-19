@@ -18,18 +18,33 @@ const DictionaryFrequencySchema = CollectionSchema(
   name: r'DictionaryFrequency',
   id: 2045353883102057112,
   properties: {
-    r'displayValue': PropertySchema(
+    r'dictionaryId': PropertySchema(
       id: 0,
+      name: r'dictionaryId',
+      type: IsarType.long,
+    ),
+    r'displayValue': PropertySchema(
+      id: 1,
       name: r'displayValue',
       type: IsarType.string,
     ),
     r'hashCode': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'hashCode',
       type: IsarType.long,
     ),
+    r'reading': PropertySchema(
+      id: 3,
+      name: r'reading',
+      type: IsarType.string,
+    ),
+    r'term': PropertySchema(
+      id: 4,
+      name: r'term',
+      type: IsarType.string,
+    ),
     r'value': PropertySchema(
-      id: 2,
+      id: 5,
       name: r'value',
       type: IsarType.double,
     )
@@ -39,21 +54,35 @@ const DictionaryFrequencySchema = CollectionSchema(
   deserialize: _dictionaryFrequencyDeserialize,
   deserializeProp: _dictionaryFrequencyDeserializeProp,
   idName: r'id',
-  indexes: {},
-  links: {
-    r'heading': LinkSchema(
-      id: -3519613892290749971,
-      name: r'heading',
-      target: r'DictionaryHeading',
-      single: true,
+  indexes: {
+    r'term': IndexSchema(
+      id: 5114652110782333408,
+      name: r'term',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'term',
+          type: IndexType.value,
+          caseSensitive: false,
+        )
+      ],
     ),
-    r'dictionary': LinkSchema(
-      id: 7440249776312249317,
-      name: r'dictionary',
-      target: r'Dictionary',
-      single: true,
+    r'dictionaryId': IndexSchema(
+      id: 3926511253275933290,
+      name: r'dictionaryId',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'dictionaryId',
+          type: IndexType.value,
+          caseSensitive: false,
+        )
+      ],
     )
   },
+  links: {},
   embeddedSchemas: {},
   getId: _dictionaryFrequencyGetId,
   getLinks: _dictionaryFrequencyGetLinks,
@@ -68,6 +97,8 @@ int _dictionaryFrequencyEstimateSize(
 ) {
   var bytesCount = offsets.last;
   bytesCount += 3 + object.displayValue.length * 3;
+  bytesCount += 3 + object.reading.length * 3;
+  bytesCount += 3 + object.term.length * 3;
   return bytesCount;
 }
 
@@ -77,9 +108,12 @@ void _dictionaryFrequencySerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeString(offsets[0], object.displayValue);
-  writer.writeLong(offsets[1], object.hashCode);
-  writer.writeDouble(offsets[2], object.value);
+  writer.writeLong(offsets[0], object.dictionaryId);
+  writer.writeString(offsets[1], object.displayValue);
+  writer.writeLong(offsets[2], object.hashCode);
+  writer.writeString(offsets[3], object.reading);
+  writer.writeString(offsets[4], object.term);
+  writer.writeDouble(offsets[5], object.value);
 }
 
 DictionaryFrequency _dictionaryFrequencyDeserialize(
@@ -89,9 +123,12 @@ DictionaryFrequency _dictionaryFrequencyDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = DictionaryFrequency(
-    displayValue: reader.readString(offsets[0]),
+    dictionaryId: reader.readLong(offsets[0]),
+    displayValue: reader.readString(offsets[1]),
     id: id,
-    value: reader.readDouble(offsets[2]),
+    reading: reader.readString(offsets[3]),
+    term: reader.readString(offsets[4]),
+    value: reader.readDouble(offsets[5]),
   );
   return object;
 }
@@ -104,10 +141,16 @@ P _dictionaryFrequencyDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readString(offset)) as P;
-    case 1:
       return (reader.readLong(offset)) as P;
+    case 1:
+      return (reader.readString(offset)) as P;
     case 2:
+      return (reader.readLong(offset)) as P;
+    case 3:
+      return (reader.readString(offset)) as P;
+    case 4:
+      return (reader.readString(offset)) as P;
+    case 5:
       return (reader.readDouble(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -120,16 +163,12 @@ Id _dictionaryFrequencyGetId(DictionaryFrequency object) {
 
 List<IsarLinkBase<dynamic>> _dictionaryFrequencyGetLinks(
     DictionaryFrequency object) {
-  return [object.heading, object.dictionary];
+  return [];
 }
 
 void _dictionaryFrequencyAttach(
     IsarCollection<dynamic> col, Id id, DictionaryFrequency object) {
   object.id = id;
-  object.heading
-      .attach(col, col.isar.collection<DictionaryHeading>(), r'heading', id);
-  object.dictionary
-      .attach(col, col.isar.collection<Dictionary>(), r'dictionary', id);
 }
 
 extension DictionaryFrequencyQueryWhereSort
@@ -137,6 +176,24 @@ extension DictionaryFrequencyQueryWhereSort
   QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterWhere> anyId() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(const IdWhereClause.any());
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterWhere>
+      anyTerm() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'term'),
+      );
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterWhere>
+      anyDictionaryId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'dictionaryId'),
+      );
     });
   }
 }
@@ -210,10 +267,300 @@ extension DictionaryFrequencyQueryWhere
       ));
     });
   }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterWhereClause>
+      termEqualTo(String term) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'term',
+        value: [term],
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterWhereClause>
+      termNotEqualTo(String term) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'term',
+              lower: [],
+              upper: [term],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'term',
+              lower: [term],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'term',
+              lower: [term],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'term',
+              lower: [],
+              upper: [term],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterWhereClause>
+      termGreaterThan(
+    String term, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'term',
+        lower: [term],
+        includeLower: include,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterWhereClause>
+      termLessThan(
+    String term, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'term',
+        lower: [],
+        upper: [term],
+        includeUpper: include,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterWhereClause>
+      termBetween(
+    String lowerTerm,
+    String upperTerm, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'term',
+        lower: [lowerTerm],
+        includeLower: includeLower,
+        upper: [upperTerm],
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterWhereClause>
+      termStartsWith(String TermPrefix) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'term',
+        lower: [TermPrefix],
+        upper: ['$TermPrefix\u{FFFFF}'],
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterWhereClause>
+      termIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'term',
+        value: [''],
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterWhereClause>
+      termIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.lessThan(
+              indexName: r'term',
+              upper: [''],
+            ))
+            .addWhereClause(IndexWhereClause.greaterThan(
+              indexName: r'term',
+              lower: [''],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.greaterThan(
+              indexName: r'term',
+              lower: [''],
+            ))
+            .addWhereClause(IndexWhereClause.lessThan(
+              indexName: r'term',
+              upper: [''],
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterWhereClause>
+      dictionaryIdEqualTo(int dictionaryId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'dictionaryId',
+        value: [dictionaryId],
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterWhereClause>
+      dictionaryIdNotEqualTo(int dictionaryId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'dictionaryId',
+              lower: [],
+              upper: [dictionaryId],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'dictionaryId',
+              lower: [dictionaryId],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'dictionaryId',
+              lower: [dictionaryId],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'dictionaryId',
+              lower: [],
+              upper: [dictionaryId],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterWhereClause>
+      dictionaryIdGreaterThan(
+    int dictionaryId, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'dictionaryId',
+        lower: [dictionaryId],
+        includeLower: include,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterWhereClause>
+      dictionaryIdLessThan(
+    int dictionaryId, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'dictionaryId',
+        lower: [],
+        upper: [dictionaryId],
+        includeUpper: include,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterWhereClause>
+      dictionaryIdBetween(
+    int lowerDictionaryId,
+    int upperDictionaryId, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'dictionaryId',
+        lower: [lowerDictionaryId],
+        includeLower: includeLower,
+        upper: [upperDictionaryId],
+        includeUpper: includeUpper,
+      ));
+    });
+  }
 }
 
 extension DictionaryFrequencyQueryFilter on QueryBuilder<DictionaryFrequency,
     DictionaryFrequency, QFilterCondition> {
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      dictionaryIdEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'dictionaryId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      dictionaryIdGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'dictionaryId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      dictionaryIdLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'dictionaryId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      dictionaryIdBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'dictionaryId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
   QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
       displayValueEqualTo(
     String value, {
@@ -481,6 +828,278 @@ extension DictionaryFrequencyQueryFilter on QueryBuilder<DictionaryFrequency,
   }
 
   QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      readingEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'reading',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      readingGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'reading',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      readingLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'reading',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      readingBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'reading',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      readingStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'reading',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      readingEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'reading',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      readingContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'reading',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      readingMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'reading',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      readingIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'reading',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      readingIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'reading',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      termEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'term',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      termGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'term',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      termLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'term',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      termBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'term',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      termStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'term',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      termEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'term',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      termContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'term',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      termMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'term',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      termIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'term',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
+      termIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'term',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
       valueEqualTo(
     double value, {
     double epsilon = Query.epsilon,
@@ -551,38 +1170,24 @@ extension DictionaryFrequencyQueryObject on QueryBuilder<DictionaryFrequency,
     DictionaryFrequency, QFilterCondition> {}
 
 extension DictionaryFrequencyQueryLinks on QueryBuilder<DictionaryFrequency,
-    DictionaryFrequency, QFilterCondition> {
-  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
-      heading(FilterQuery<DictionaryHeading> q) {
-    return QueryBuilder.apply(this, (query) {
-      return query.link(q, r'heading');
-    });
-  }
-
-  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
-      headingIsNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.linkLength(r'heading', 0, true, 0, true);
-    });
-  }
-
-  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
-      dictionary(FilterQuery<Dictionary> q) {
-    return QueryBuilder.apply(this, (query) {
-      return query.link(q, r'dictionary');
-    });
-  }
-
-  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterFilterCondition>
-      dictionaryIsNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.linkLength(r'dictionary', 0, true, 0, true);
-    });
-  }
-}
+    DictionaryFrequency, QFilterCondition> {}
 
 extension DictionaryFrequencyQuerySortBy
     on QueryBuilder<DictionaryFrequency, DictionaryFrequency, QSortBy> {
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterSortBy>
+      sortByDictionaryId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'dictionaryId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterSortBy>
+      sortByDictionaryIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'dictionaryId', Sort.desc);
+    });
+  }
+
   QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterSortBy>
       sortByDisplayValue() {
     return QueryBuilder.apply(this, (query) {
@@ -612,6 +1217,34 @@ extension DictionaryFrequencyQuerySortBy
   }
 
   QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterSortBy>
+      sortByReading() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'reading', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterSortBy>
+      sortByReadingDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'reading', Sort.desc);
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterSortBy>
+      sortByTerm() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'term', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterSortBy>
+      sortByTermDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'term', Sort.desc);
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterSortBy>
       sortByValue() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'value', Sort.asc);
@@ -628,6 +1261,20 @@ extension DictionaryFrequencyQuerySortBy
 
 extension DictionaryFrequencyQuerySortThenBy
     on QueryBuilder<DictionaryFrequency, DictionaryFrequency, QSortThenBy> {
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterSortBy>
+      thenByDictionaryId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'dictionaryId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterSortBy>
+      thenByDictionaryIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'dictionaryId', Sort.desc);
+    });
+  }
+
   QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterSortBy>
       thenByDisplayValue() {
     return QueryBuilder.apply(this, (query) {
@@ -671,6 +1318,34 @@ extension DictionaryFrequencyQuerySortThenBy
   }
 
   QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterSortBy>
+      thenByReading() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'reading', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterSortBy>
+      thenByReadingDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'reading', Sort.desc);
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterSortBy>
+      thenByTerm() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'term', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterSortBy>
+      thenByTermDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'term', Sort.desc);
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QAfterSortBy>
       thenByValue() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'value', Sort.asc);
@@ -688,6 +1363,13 @@ extension DictionaryFrequencyQuerySortThenBy
 extension DictionaryFrequencyQueryWhereDistinct
     on QueryBuilder<DictionaryFrequency, DictionaryFrequency, QDistinct> {
   QueryBuilder<DictionaryFrequency, DictionaryFrequency, QDistinct>
+      distinctByDictionaryId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'dictionaryId');
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QDistinct>
       distinctByDisplayValue({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'displayValue', caseSensitive: caseSensitive);
@@ -698,6 +1380,20 @@ extension DictionaryFrequencyQueryWhereDistinct
       distinctByHashCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'hashCode');
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QDistinct>
+      distinctByReading({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'reading', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, DictionaryFrequency, QDistinct>
+      distinctByTerm({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'term', caseSensitive: caseSensitive);
     });
   }
 
@@ -717,6 +1413,13 @@ extension DictionaryFrequencyQueryProperty
     });
   }
 
+  QueryBuilder<DictionaryFrequency, int, QQueryOperations>
+      dictionaryIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'dictionaryId');
+    });
+  }
+
   QueryBuilder<DictionaryFrequency, String, QQueryOperations>
       displayValueProperty() {
     return QueryBuilder.apply(this, (query) {
@@ -727,6 +1430,19 @@ extension DictionaryFrequencyQueryProperty
   QueryBuilder<DictionaryFrequency, int, QQueryOperations> hashCodeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'hashCode');
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, String, QQueryOperations>
+      readingProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'reading');
+    });
+  }
+
+  QueryBuilder<DictionaryFrequency, String, QQueryOperations> termProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'term');
     });
   }
 

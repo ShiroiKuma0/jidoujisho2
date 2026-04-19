@@ -14,6 +14,7 @@ class DictionaryEntryPage extends ConsumerStatefulWidget {
   /// Create the widget for a dictionary entry.
   const DictionaryEntryPage({
     required this.entry,
+    required this.heading,
     required this.onSearch,
     required this.onStash,
     required this.onShare,
@@ -23,6 +24,11 @@ class DictionaryEntryPage extends ConsumerStatefulWidget {
 
   /// The entry particular to this
   final DictionaryEntry entry;
+
+  /// The parent heading that owns this entry — threaded through from
+  /// the result assembly so widgets inside no longer rely on a
+  /// non-existent `entry.heading` link in the flat schema.
+  final DictionaryHeading heading;
 
   /// Action to be done upon selecting the search option.
   final Function(String) onSearch;
@@ -62,7 +68,10 @@ class _DictionaryEntryPageState extends ConsumerState<DictionaryEntryPage> {
           headerAlignment: ExpandablePanelHeaderAlignment.center,
         ),
         controller: widget.expandableController,
-        header: _DictionaryEntryTagsWrap(entry: widget.entry),
+        header: _DictionaryEntryTagsWrap(
+          entry: widget.entry,
+          heading: widget.heading,
+        ),
         collapsed: const SizedBox.shrink(),
         expanded: Padding(
           padding: EdgeInsets.only(
@@ -131,9 +140,11 @@ class _DictionaryEntryPageState extends ConsumerState<DictionaryEntryPage> {
 class _DictionaryEntryTagsWrap extends ConsumerWidget {
   const _DictionaryEntryTagsWrap({
     required this.entry,
+    required this.heading,
   });
 
   final DictionaryEntry entry;
+  final DictionaryHeading heading;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -176,7 +187,7 @@ class _DictionaryEntryTagsWrap extends ConsumerWidget {
                 context: context,
                 dictionary: dictionary,
                 ref: ref,
-                heading: entry.heading.value!,
+                heading: heading,
               ),
             ),
           )

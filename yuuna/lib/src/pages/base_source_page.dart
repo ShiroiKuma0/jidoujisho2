@@ -135,6 +135,42 @@ class BaseSourcePageState<T extends BaseSourcePage> extends BasePageState<T> {
     required JidoujishoPopupPosition position,
     int? overrideMaximumTerms,
   }) async {
+    // If the user prefers going straight to the full-screen recursive
+    // dictionary page, redirect the *initial* tap there and skip the
+    // half-screen popup. The "show more" expansion inside the popup
+    // passes `overrideMaximumTerms`, so that path is preserved.
+    //
+    // Callers typically hand us a long span starting at the tapped
+    // character (for Japanese, the entire rest of the sentence; for
+    // space-delimited languages, the full paragraph). We need to run
+    // the dictionary search once first to find the matched prefix
+    // length — otherwise the full-screen page would display the whole
+    // paragraph as its query instead of just the word the user tapped.
+    if (overrideMaximumTerms == null && appModel.autoFullScreenDictionary) {
+      _lastSearchTerm = searchTerm;
+      String finalTerm = searchTerm;
+      try {
+        final lookup = await appModel.searchDictionary(
+          searchTerm: searchTerm,
+          searchWithWildcards: false,
+        );
+        if (lookup.headings.isNotEmpty) {
+          final int matchLen =
+              appModel.targetLanguage.getFinalHighlightLength(
+            result: lookup,
+            searchTerm: searchTerm,
+          );
+          if (matchLen > 0 && matchLen <= searchTerm.length) {
+            finalTerm = searchTerm.substring(0, matchLen);
+          }
+        }
+      } catch (_) {
+        // Fall back to the raw tapped span if the lookup throws.
+      }
+      onSearch(finalTerm);
+      return;
+    }
+
     if (_lastSearchTerm == searchTerm && overrideMaximumTerms == null) {
       return;
     } else {
@@ -422,16 +458,57 @@ class BaseSourcePageState<T extends BaseSourcePage> extends BasePageState<T> {
           children: [
             Align(
               alignment: Alignment.center,
-              child: GestureDetector(
-                onTap: showEditSearchDialog,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 4, bottom: 2),
-                  child: Icon(
-                    Icons.edit,
-                    size: 14,
-                    color: Theme.of(context).unselectedWidgetColor,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Toggle that permanently flips the "full-screen on
+                  // tap" preference to ON and immediately re-opens the
+                  // current result in the full-screen recursive
+                  // dictionary page, using the language's match-length
+                  // to truncate the long tapped span to the actual
+                  // matched word.
+                  GestureDetector(
+                    onTap: () {
+                      appModel.toggleAutoFullScreenDictionary();
+                      if (_lastSearchTerm == null) {
+                        return;
+                      }
+                      final result = _dictionaryResultNotifier.value;
+                      String term = _lastSearchTerm!;
+                      if (result != null && result.headings.isNotEmpty) {
+                        final int matchLen =
+                            appModel.targetLanguage.getFinalHighlightLength(
+                          result: result,
+                          searchTerm: _lastSearchTerm!,
+                        );
+                        if (matchLen > 0 &&
+                            matchLen <= _lastSearchTerm!.length) {
+                          term = _lastSearchTerm!.substring(0, matchLen);
+                        }
+                      }
+                      onSearch(term);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 8, bottom: 2),
+                      child: Icon(
+                        Icons.fullscreen,
+                        size: 16,
+                        color: Theme.of(context).unselectedWidgetColor,
+                      ),
+                    ),
                   ),
-                ),
+                  GestureDetector(
+                    onTap: showEditSearchDialog,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 4, bottom: 2),
+                      child: Icon(
+                        Icons.edit,
+                        size: 14,
+                        color: Theme.of(context).unselectedWidgetColor,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             Expanded(

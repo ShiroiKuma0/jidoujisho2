@@ -1083,7 +1083,7 @@ SearchHistoryItem _$SearchHistoryItemFromJson(Map<String, dynamic> json) =>
     SearchHistoryItem(
       historyKey: json['historyKey'] as String,
       searchTerm: json['searchTerm'] as String,
-      id: json['id'] as int?,
+      id: (json['id'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$SearchHistoryItemToJson(SearchHistoryItem instance) =>

@@ -71,6 +71,7 @@ class _DictionaryDialogPageState extends BasePageState {
             mainAxisSize: MainAxisSize.min,
             children: [
               buildAutoSearchSwitch(),
+              buildAutoFullScreenDictionarySwitch(),
               const Space.small(),
               const JidoujishoDivider(),
               buildDebounceDelayField(),
@@ -103,6 +104,31 @@ class _DictionaryDialogPageState extends BasePageState {
               onChanged: (value) {
                 appModel.toggleAutoSearchEnabled();
                 notifier.value = appModel.autoSearchEnabled;
+              },
+            );
+          },
+        )
+      ],
+    );
+  }
+
+  Widget buildAutoFullScreenDictionarySwitch() {
+    ValueNotifier<bool> notifier =
+        ValueNotifier<bool>(appModel.autoFullScreenDictionary);
+
+    return Row(
+      children: [
+        const Expanded(
+          child: Text('Open dictionary full-screen on tap'),
+        ),
+        ValueListenableBuilder<bool>(
+          valueListenable: notifier,
+          builder: (_, value, __) {
+            return Switch(
+              value: value,
+              onChanged: (v) {
+                appModel.toggleAutoFullScreenDictionary();
+                notifier.value = appModel.autoFullScreenDictionary;
               },
             );
           },

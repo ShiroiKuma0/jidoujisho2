@@ -2826,7 +2826,7 @@ AnkiMapping _$AnkiMappingFromJson(Map<String, dynamic> json) => AnkiMapping(
           (json['creatorCollapsedFieldKeys'] as List<dynamic>)
               .map((e) => e as String)
               .toList(),
-      order: json['order'] as int,
+      order: (json['order'] as num).toInt(),
       tags: (json['tags'] as List<dynamic>).map((e) => e as String).toList(),
       exportMediaTags: json['exportMediaTags'] as bool?,
       useBrTags: json['useBrTags'] as bool?,
@@ -2841,7 +2841,7 @@ AnkiMapping _$AnkiMappingFromJson(Map<String, dynamic> json) => AnkiMapping(
       actions: (json['actions'] as Map<String, dynamic>?)?.map(
         (k, e) => MapEntry(int.parse(k), e as String),
       ),
-      id: json['id'] as int?,
+      id: (json['id'] as num?)?.toInt(),
     )
       ..actionsIsar = json['actionsIsar'] as String
       ..enhancementsIsar = json['enhancementsIsar'] as String;

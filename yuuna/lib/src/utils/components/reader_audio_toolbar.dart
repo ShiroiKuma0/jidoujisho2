@@ -17,6 +17,7 @@ class ReaderAudioToolbar extends StatefulWidget {
   const ReaderAudioToolbar({
     required this.bookKey,
     required this.appModel,
+    this.secondaryBookKey,
     this.onToggleSecondary,
     this.onOpenSecondaryManager,
     this.onRemoveSecondary,
@@ -28,6 +29,11 @@ class ReaderAudioToolbar extends StatefulWidget {
   });
 
   final String bookKey;
+
+  /// Stable storage key for the translation book's reader appearance
+  /// settings. Null when no translation book is attached.
+  final String? secondaryBookKey;
+
   final AppModel appModel;
   final VoidCallback? onToggleSecondary;
   final VoidCallback? onOpenSecondaryManager;
@@ -324,9 +330,31 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
 
     showModalBottomSheet(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      backgroundColor: Colors.black,
+      builder: (ctx) => Theme(
+        // Force the reader bottom-sheet menu into the same yellow-on-black
+        // palette the rest of the reader uses; without this override the
+        // system picks up the light Material defaults and renders white
+        // text on a grey surface.
+        data: Theme.of(ctx).copyWith(
+          iconTheme: const IconThemeData(color: Color(0xFFFFFF00)),
+          listTileTheme: const ListTileThemeData(
+            iconColor: Color(0xFFFFFF00),
+            textColor: Color(0xFFFFFF00),
+          ),
+          dividerTheme: const DividerThemeData(
+            color: Color(0xFF333333),
+            thickness: 1,
+            space: 8,
+          ),
+          textTheme: Theme.of(ctx).textTheme.apply(
+                bodyColor: const Color(0xFFFFFF00),
+                displayColor: const Color(0xFFFFFF00),
+              ),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: const Icon(Icons.audiotrack),
@@ -373,12 +401,23 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.palette),
-              title: const Text('Reader appearance'),
+              title: Text(widget.hasSecondary
+                  ? 'Primary book appearance'
+                  : 'Reader appearance'),
               onTap: () {
                 Navigator.pop(ctx);
-                _showReaderSettings();
+                _showReaderSettings(widget.bookKey);
               },
             ),
+            if (widget.hasSecondary && widget.secondaryBookKey != null)
+              ListTile(
+                leading: const Icon(Icons.palette_outlined),
+                title: const Text('Translation book appearance'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showReaderSettings(widget.secondaryBookKey!);
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.menu_book),
               title: Text(widget.hasSecondary
@@ -403,6 +442,7 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
                 },
               ),
           ],
+        ),
         ),
       ),
     );
@@ -434,17 +474,35 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
     );
   }
 
-  void _showReaderSettings() async {
-    String key = _safeKey(widget.bookKey);
+  /// Open the reader appearance dialog for the given book. Pass the
+  /// Open the reader appearance page for the given book. Pass the
+  /// primary book's key when no translation book is shown, or either
+  /// book's key in split mode.
+  ///
+  /// Uses `Navigator.push` with a full-screen route instead of
+  /// `showDialog` because TextField focus and the system IME are
+  /// unreliable when a dialog overlays an immersive-mode scaffold —
+  /// taps don't always raise the keyboard, and long-press sometimes
+  /// raises it without accepting typed input. A pushed page goes
+  /// through the normal route-focus machinery and behaves predictably.
+  void _showReaderSettings(String bookKey) async {
+    String key = _safeKey(bookKey);
     ReaderAppearanceSettings current =
         ReaderAppearanceSettings.load(_box, key);
-    // Allow keyboard to appear over immersive mode
+    // Release any focus held by the previous route (e.g. the WebView
+    // reader) before opening the page. Without this, TextField focus
+    // on the pushed page is intermittently broken because Flutter's
+    // focus tree still thinks the WebView owns input.
+    FocusManager.instance.primaryFocus?.unfocus();
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    await Future.delayed(const Duration(milliseconds: 5), () {});
     ReaderAppearanceSettings? result =
-        await showDialog<ReaderAppearanceSettings>(
-      context: context,
-      builder: (ctx) => ReaderSettingsDialog(settings: current),
+        await Navigator.of(context).push<ReaderAppearanceSettings>(
+      MaterialPageRoute(
+        builder: (ctx) => ReaderSettingsDialog(settings: current),
+      ),
     );
+    await Future.delayed(const Duration(milliseconds: 5), () {});
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     if (result != null) {
       await result.save(_box, key);

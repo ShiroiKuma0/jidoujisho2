@@ -1,90 +1,177 @@
-import 'package:yuuna/dictionary.dart';
 import 'package:isar/isar.dart';
+import 'package:yuuna/dictionary.dart';
 
 part 'dictionary_entry.g.dart';
 
-/// A database entity that represents single or multiple dictionary definitions,
-/// which can be in text, media or in a custom format.
+/// A flat, self-contained dictionary entry — a single Yomichan term-bank
+/// row.
 ///
-/// A dictionary value belongs to a certain imported dictionary. There may be
-/// multiple distinct values belonging to a single key.
+/// In contrast to earlier schema versions, entries are no longer joined to
+/// shared `DictionaryHeading` rows via `IsarLinks`. The [term], [reading],
+/// [dictionaryId] and tag fields live directly on the entry. Headings are
+/// reconstructed at query time by grouping entries with equal `(term,
+/// reading)`.
+///
+/// Definitions are stored in [compressedDefinitions] as zstd-compressed
+/// bytes (see [DefinitionCodec]). The decoded form is populated lazily into
+/// the transient [decodedDefinitionsCache] field by the search post-
+/// processing step in `AppModel.searchDictionary`. The [decodedDefinitions]
+/// getter throws if the cache has not been populated, which intentionally
+/// converts "I forgot to await decode before render" from a silent
+/// rendering bug into a loud crash.
 @Collection()
 class DictionaryEntry {
-  /// A standard dictionary entry would only contain text content, but may
-  /// also be represented with image or audio, or in a custom format.
+  /// Construct an entry. The [compressedDefinitions] payload should already
+  /// have been produced by [DefinitionCodec.encode] before calling.
   DictionaryEntry({
-    required this.definitions,
+    required this.term,
+    required this.reading,
+    required this.dictionaryId,
     required this.popularity,
-    this.headingTagNames = const [],
-    this.entryTagNames = const [],
+    required this.compressedDefinitions,
+    this.entryTagsRaw = '',
+    this.headingTagsRaw = '',
     this.imagePaths,
     this.audioPaths,
-    this.extra,
     this.id,
   });
 
   /// Identifier for database purposes.
   Id? id;
 
-  /// This field is used for definitions that can be represented in text form,
-  /// which will probably make up the majority of use cases.
-  final List<String> definitions;
+  /// The headword. Indexed for search; case-insensitive.
+  @Index(type: IndexType.value, caseSensitive: false)
+  final String term;
 
-  /// Name of tags that add detail to and describe the heading this entry
-  /// belongs to. This entity is non-null only during the import process. Use
-  /// [tags] from the [heading] instead.
-  @ignore
-  final List<String> headingTagNames;
+  /// The reading (alternate form). For languages without distinct readings
+  /// (e.g. English, German) this typically equals [term] or is empty.
+  /// Indexed for search; case-insensitive.
+  @Index(type: IndexType.value, caseSensitive: false)
+  final String reading;
 
-  /// Name of tags that add detail to and describe this entry. This entity is
-  /// non-null only during the import process. Use [tags] instead.
-  @ignore
-  final List<String> entryTagNames;
-
-  /// An optional value that if non-null, contains a path that will point to
-  /// an image resource. The resource contained in the path is deleted if it
-  /// exists in the file system.
-  final List<String>? imagePaths;
-
-  /// An optional value that if non-null, contains a path that will point to
-  /// audio resources. All paths in this will all be deleted if it
-  /// exists in the file system.
-  final List<String>? audioPaths;
-
-  /// An optional value that may be used to store structured content or
-  /// metadata that cannot be represented in any other parameters.
-  final String? extra;
-
-  /// A value that can be used to sort entries when performing a database
-  /// search. Lower negative values mean rarer, and higher positive values are
-  /// more common.
+  /// Length of [term]. Indexed so prefix-based search can short-circuit
+  /// candidate sets.
   @Index()
+  int get termLength => term.length;
+
+  /// Foreign-key-style reference to the parent [Dictionary] row's id.
+  /// Indexed so deletion of a single dictionary is fast.
+  @Index()
+  final int dictionaryId;
+
+  /// Popularity score from the source dictionary. Higher = more common.
+  /// Used at query time to sort headings.
   final double popularity;
 
-  /// Returns all definitions bullet pointed if multiple, and returns the
-  /// single definition if otherwise.
-  String get compactDefinitions {
-    if (definitions.length > 1) {
-      return definitions
-          .map((definition) => '• ${definition.trim()}')
-          .join('\n');
-    }
+  /// Compressed payload produced by [DefinitionCodec.encode]. Stored as a
+  /// raw byte list so Isar can pack it efficiently without the ~33% overhead
+  /// of a String/base64 representation.
+  final List<byte> compressedDefinitions;
 
-    return definitions.join().trim();
+  /// Space-separated tag names that describe this single entry — the
+  /// Yomichan term-bank "definitionTags" field stored verbatim. Looked up
+  /// against the dictionary's tag map at render time.
+  final String entryTagsRaw;
+
+  /// Space-separated tag names that describe the headword (term/reading)
+  /// this entry belongs to — the Yomichan term-bank "termTags" field stored
+  /// verbatim.
+  final String headingTagsRaw;
+
+  /// Optional paths to image assets referenced by structured content. Kept
+  /// as a list of relative filenames; resolved against the per-dictionary
+  /// resource directory at render time.
+  final List<String>? imagePaths;
+
+  /// Optional paths to audio assets referenced by structured content.
+  final List<String>? audioPaths;
+
+  /// Transient. Populated by the search post-processing step in
+  /// `AppModel.searchDictionary` after results are loaded but before they
+  /// are returned to the UI. Reads are synchronous via
+  /// [decodedDefinitions].
+  @ignore
+  List<String>? decodedDefinitionsCache;
+
+  /// Transient. The owning [Dictionary] object, populated at search time
+  /// by `AppModel.searchDictionary` so that call sites can keep the old
+  /// `entry.dictionary.value!.name` syntax from the link-based schema.
+  /// Null until populated.
+  @ignore
+  Dictionary? dictionaryRef;
+
+  /// Transient. Resolved tag objects for the names listed in
+  /// [entryTagsRaw], populated at search time. Empty until populated.
+  /// Renderer code accesses this as `entry.tags` (matching the old
+  /// `IsarLinks<DictionaryTag>` API shape).
+  @ignore
+  List<DictionaryTag> tags = <DictionaryTag>[];
+
+  /// Compatibility shim that mimics the `IsarLink<Dictionary>` access
+  /// pattern the rest of the codebase uses: `entry.dictionary.value!`.
+  /// The [_EntryDictionaryLink.value] field returns [dictionaryRef]
+  /// directly so the flat schema doesn't require touching every field
+  /// and page that renders an entry.
+  @ignore
+  _EntryDictionaryLink get dictionary => _EntryDictionaryLink(this);
+
+  /// Alias for [decodedDefinitions] preserved so existing field
+  /// renderer code (`entry.definitions`) keeps working without per-
+  /// site changes. Requires the entry to have been post-processed
+  /// (i.e. passed through `AppModel.searchDictionary` or
+  /// `AppModel.ensureDecoded`).
+  @ignore
+  List<String> get definitions => decodedDefinitions;
+
+  /// Synchronous accessor for the decoded definitions list.
+  ///
+  /// Throws [StateError] if the cache has not been populated. This is
+  /// intentional: it converts "forgot to pre-decode" into a hard failure
+  /// during development rather than rendering compressed garbage.
+  @ignore
+  List<String> get decodedDefinitions {
+    final cache = decodedDefinitionsCache;
+    if (cache == null) {
+      throw StateError(
+          'DictionaryEntry.decodedDefinitions accessed before the entry '
+          'was post-processed by AppModel.searchDictionary. Call '
+          'AppModel.ensureDecoded(entry) first, or load entries via the '
+          'search path.');
+    }
+    return cache;
   }
 
-  /// Each dictionary entry belongs to a certain heading.
-  final IsarLink<DictionaryHeading> heading = IsarLink<DictionaryHeading>();
-
-  /// Each dictionary entry belongs to a dictionary.
-  final IsarLink<Dictionary> dictionary = IsarLink<Dictionary>();
-
-  /// Each dictionary entry may have a set of tags.
-  final IsarLinks<DictionaryTag> tags = IsarLinks<DictionaryTag>();
+  /// Returns all definitions bullet-pointed if multiple, otherwise the
+  /// single definition trimmed.
+  ///
+  /// Computed on-demand from [decodedDefinitions]; not stored.
+  @ignore
+  String get compactDefinitions {
+    final defs = decodedDefinitions;
+    if (defs.length > 1) {
+      return defs.map((d) => '• ${d.trim()}').join('\n');
+    }
+    return defs.join().trim();
+  }
 
   @override
   bool operator ==(Object other) => other is DictionaryEntry && id == other.id;
 
   @override
   int get hashCode => id.hashCode;
+}
+
+/// Tiny `.value`-shaped wrapper so consumers can access the owning
+/// [Dictionary] through `entry.dictionary.value!` — matching the
+/// pattern the codebase uses with the old Isar link type without
+/// forcing every call site to change shape. Pure getter, no
+/// allocation of storage beyond the shim itself.
+class _EntryDictionaryLink {
+  _EntryDictionaryLink(this._entry);
+
+  final DictionaryEntry _entry;
+
+  /// The resolved dictionary, or null if the entry has not yet been
+  /// post-processed by the search pipeline.
+  Dictionary? get value => _entry.dictionaryRef;
 }

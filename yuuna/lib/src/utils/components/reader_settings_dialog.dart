@@ -157,6 +157,19 @@ class _ReaderSettingsDialogState extends State<ReaderSettingsDialog> {
 
   final List<String> _fontWeights = ['Thin', 'Normal', 'Bold'];
 
+  /// Fonts bundled with the ッツ Ebook Reader. Keeping this in sync with
+  /// the reader's own font list (see `_app/immutable/chunks/fonts-*.js`)
+  /// lets users pick any of them from the appearance dialog without
+  /// having to import a TTF/OTF file themselves.
+  static const List<String> _predefinedFonts = [
+    'Genei Koburi Mincho v5',
+    'Klee One',
+    'Klee One SemiBold',
+    'Noto Sans JP',
+    'Noto Serif JP',
+    'Shippori Mincho',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -189,6 +202,20 @@ class _ReaderSettingsDialogState extends State<ReaderSettingsDialog> {
         TextEditingController(text: _s.fontFamily);
     _fontFamily2Controller =
         TextEditingController(text: _s.fontFamilySecondary);
+
+    // When this page is pushed from the immersive-mode reader, the
+    // previous route (WebView) can retain the touch/focus claim long
+    // enough that TextField taps here don't request IME until some
+    // other focusable widget (like the DropdownButton) is interacted
+    // with and dismissed. A post-frame unfocus explicitly tears down
+    // any stale focus ownership and establishes this route as the
+    // active focus scope, making the TextFields responsive on the
+    // first tap instead of requiring a dropdown-open-and-close first.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        FocusManager.instance.primaryFocus?.unfocus();
+      }
+    });
   }
 
   @override
@@ -258,13 +285,48 @@ class _ReaderSettingsDialogState extends State<ReaderSettingsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return Scaffold(
       backgroundColor: Colors.black,
-      title: const Text('Reader appearance',
-          style: TextStyle(color: _y)),
-      content: SizedBox(
-        width: MediaQuery.of(context).size.width * 0.85,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: _y,
+        iconTheme: const IconThemeData(color: _y),
+        title: const Text('Reader appearance',
+            style: TextStyle(color: _y)),
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: _y),
+          tooltip: 'Cancel',
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.check, color: _y),
+            tooltip: 'Apply',
+            onPressed: () {
+              _s.marginLeft =
+                  int.tryParse(_marginLController.text) ?? _s.marginLeft;
+              _s.marginTop =
+                  int.tryParse(_marginTController.text) ?? _s.marginTop;
+              _s.marginRight =
+                  int.tryParse(_marginRController.text) ?? _s.marginRight;
+              _s.marginBottom =
+                  int.tryParse(_marginBController.text) ?? _s.marginBottom;
+              _s.paragraphSpacing =
+                  double.tryParse(_paraSpacingController.text) ??
+                      _s.paragraphSpacing;
+              _s.lineSpacing =
+                  double.tryParse(_lineSpacingController.text) ??
+                      _s.lineSpacing;
+              _s.fontFamily = _fontFamilyController.text.trim();
+              _s.fontFamilySecondary = _fontFamily2Controller.text.trim();
+              Navigator.pop(context, _s);
+            },
+          ),
+        ],
+      ),
+      body: SafeArea(
         child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -349,34 +411,6 @@ class _ReaderSettingsDialogState extends State<ReaderSettingsDialog> {
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: _y)),
-        ),
-        TextButton(
-          onPressed: () {
-            _s.marginLeft =
-                int.tryParse(_marginLController.text) ?? _s.marginLeft;
-            _s.marginTop =
-                int.tryParse(_marginTController.text) ?? _s.marginTop;
-            _s.marginRight =
-                int.tryParse(_marginRController.text) ?? _s.marginRight;
-            _s.marginBottom =
-                int.tryParse(_marginBController.text) ?? _s.marginBottom;
-            _s.paragraphSpacing =
-                double.tryParse(_paraSpacingController.text) ??
-                    _s.paragraphSpacing;
-            _s.lineSpacing =
-                double.tryParse(_lineSpacingController.text) ??
-                    _s.lineSpacing;
-            _s.fontFamily = _fontFamilyController.text.trim();
-            _s.fontFamilySecondary = _fontFamily2Controller.text.trim();
-            Navigator.pop(context, _s);
-          },
-          child: const Text('Apply', style: TextStyle(color: _y)),
-        ),
-      ],
     );
   }
 
@@ -422,6 +456,59 @@ class _ReaderSettingsDialogState extends State<ReaderSettingsDialog> {
     );
   }
 
+  Future<void> _pickPredefinedFont(TextEditingController controller) async {
+    String? selected = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: Colors.black,
+          title: const Text('Pick a font',
+              style: TextStyle(color: _y, fontSize: 14)),
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _predefinedFonts.length,
+              itemBuilder: (ctx, i) {
+                final name = _predefinedFonts[i];
+                final bool isCurrent = controller.text == name;
+                return ListTile(
+                  dense: true,
+                  title: Text(
+                    name,
+                    style: TextStyle(
+                      color: _y,
+                      fontSize: 14,
+                      fontWeight:
+                          isCurrent ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  trailing: isCurrent
+                      ? const Icon(Icons.check, color: _y, size: 18)
+                      : null,
+                  onTap: () => Navigator.of(ctx).pop(name),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel', style: TextStyle(color: _y)),
+            ),
+          ],
+        );
+      },
+    );
+    if (selected != null && selected.isNotEmpty) {
+      setState(() {
+        controller.text = selected;
+      });
+      FocusScope.of(context).unfocus();
+    }
+  }
+
   Widget _fontField(String label, TextEditingController controller) {
     return TextField(
       controller: controller,
@@ -436,6 +523,13 @@ class _ReaderSettingsDialogState extends State<ReaderSettingsDialog> {
         suffixIcon: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            JidoujishoIconButton(
+              size: 18,
+              icon: Icons.text_fields,
+              tooltip: 'Pick predefined font',
+              enabledColor: _y,
+              onTap: () => _pickPredefinedFont(controller),
+            ),
             JidoujishoIconButton(
               size: 18,
               icon: Icons.font_download,

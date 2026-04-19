@@ -101,27 +101,6 @@ class DeleteDictionaryParams extends IsolateParams {
   final int? dictionaryId;
 }
 
-/// For isolate communication purposes. Used for dictionary deletion.
-class UpdateDictionaryHistoryParams extends IsolateParams {
-  /// Prepare parameters needed to update dictionary history.
-  UpdateDictionaryHistoryParams({
-    required this.resultId,
-    required this.newPosition,
-    required this.maximumDictionaryHistoryItems,
-    required super.sendPort,
-    required super.directoryPath,
-  });
-
-  /// The result of a dictionary search to be added to history.
-  final int resultId;
-
-  /// New position to record.
-  final int newPosition;
-
-  /// Maximum number of history items.
-  final int maximumDictionaryHistoryItems;
-}
-
 /// For isolate communication purposes. Used for dictionary search.
 class DictionarySearchParams extends IsolateParams {
   /// Prepare parameters needed for searching the dictionary database from a

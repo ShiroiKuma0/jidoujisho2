@@ -10,14 +10,8 @@ import 'package:path/path.dart' as path;
 import 'package:yuuna/dictionary.dart';
 import 'package:yuuna/i18n/strings.g.dart';
 
-/// A dictionary format for archives following the ABBYY Lingvo or DSL format
-/// compatible with GoldenDict.
-///
-/// Details on the format can be found here:
-/// http://lingvo.helpmax.net/en/troubleshooting/dsl-compiler/dsl-dictionary-structure/
+/// A dictionary format for the JSON-based Migaku Dictionary archives.
 class MigakuFormat extends DictionaryFormat {
-  /// Define a format with the given metadata that has its behaviour for
-  /// import, search and display defined with af set of top-level helper methods.
   MigakuFormat._privateConstructor()
       : super(
           uniqueKey: 'migaku',
@@ -36,11 +30,10 @@ class MigakuFormat extends DictionaryFormat {
 
   /// Get the singleton instance of this dictionary format.
   static MigakuFormat get instance => _instance;
-
   static final MigakuFormat _instance = MigakuFormat._privateConstructor();
 }
 
-/// Top-level function for use in compute. See [DictionaryFormat] for details.
+/// Top-level: extract the source archive into a working directory.
 Future<void> prepareDirectoryMigakuFormat(PrepareDirectoryParams params) async {
   await ZipFile.extractToDirectory(
     zipFile: params.file,
@@ -48,77 +41,91 @@ Future<void> prepareDirectoryMigakuFormat(PrepareDirectoryParams params) async {
   );
 }
 
-/// Top-level function for use in compute. See [DictionaryFormat] for details.
+/// Top-level: dictionary name = original ZIP basename (Migaku has no
+/// in-archive name).
 Future<String> prepareNameMigakuFormat(PrepareDirectoryParams params) async {
-  File originalFile = params.file;
-  return path.basenameWithoutExtension(originalFile.path);
+  return path.basenameWithoutExtension(params.file.path);
 }
 
-/// Top-level function for use in compute. See [DictionaryFormat] for details.
-void prepareEntriesMigakuFormat({
+/// Batch size for entry writes.
+const int _kEntryWriteBatch = 1000;
+
+/// Top-level: parse all JSON files in the archive, build entry rows with
+/// zstd-compressed definitions, write in batches.
+Future<void> prepareEntriesMigakuFormat({
   required PrepareDictionaryParams params,
   required Isar isar,
 }) async {
   final List<FileSystemEntity> entities = params.resourceDirectory.listSync();
   final Iterable<File> files = entities.whereType<File>();
 
+  final dictionaryId = params.dictionary.id;
+  final pendingEntries = <DictionaryEntry>[];
   int count = 0;
 
-  for (File file in files) {
-    List<dynamic> items = List.from(jsonDecode(file.readAsStringSync()));
+  Future<void> flushPending() async {
+    if (pendingEntries.isEmpty) return;
+    final toWrite = List<DictionaryEntry>.from(pendingEntries);
+    pendingEntries.clear();
+    isar.writeTxnSync(() {
+      isar.dictionaryEntrys.putAllSync(toWrite);
+    });
+  }
 
-    for (dynamic item in items) {
-      Map<String, dynamic> map = Map<String, dynamic>.from(item);
+  for (final file in files) {
+    final List<dynamic> items =
+        List.from(jsonDecode(file.readAsStringSync()));
 
-      String term = (map['term'] as String).trim();
+    for (final dynamic item in items) {
+      final Map<String, dynamic> map = Map<String, dynamic>.from(item);
+
+      final String term = (map['term'] as String).trim();
       String definition = map['definition'] as String;
-      String reading = map['pronunciation'] ?? '';
+      final String reading = map['pronunciation'] ?? '';
 
       definition = definition
           .replaceAll('<br>', '\n')
           .replaceAll(RegExp('<[^<]+?>'), '');
 
-      int headingId = DictionaryHeading.hash(term: term, reading: reading);
-      DictionaryHeading heading = isar.dictionaryHeadings.getSync(headingId) ??
-          DictionaryHeading(term: term, reading: reading);
+      final compressed = await DefinitionCodec.encode([definition]);
 
-      DictionaryEntry entry = DictionaryEntry(
-        definitions: [definition],
+      pendingEntries.add(DictionaryEntry(
+        term: term,
+        reading: reading,
+        dictionaryId: dictionaryId,
         popularity: 0,
-      );
+        compressedDefinitions: compressed,
+      ));
 
-      entry.heading.value = heading;
-      entry.dictionary.value = params.dictionary;
-      isar.dictionaryEntrys.putSync(entry);
-
-      heading.entries.add(entry);
-
-      isar.dictionaryHeadings.putSync(heading);
+      if (pendingEntries.length >= _kEntryWriteBatch) {
+        await flushPending();
+      }
 
       count++;
-      params.send(t.import_found_entry(
-        count: count,
-      ));
+      if ((count & 0xFF) == 0) {
+        params.send(t.import_found_entry(count: count));
+      }
     }
   }
 
+  await flushPending();
   params.send(t.import_found_entry(count: count));
 }
 
-/// Top-level function for use in compute. See [DictionaryFormat] for details.
-void prepareTagsMigakuFormat({
+/// Top-level: Migaku archives have no tag bank.
+Future<void> prepareTagsMigakuFormat({
   required PrepareDictionaryParams params,
   required Isar isar,
 }) async {}
 
-/// Top-level function for use in compute. See [DictionaryFormat] for details.
-void preparePitchesMigakuFormat({
+/// Top-level: Migaku archives have no pitch data.
+Future<void> preparePitchesMigakuFormat({
   required PrepareDictionaryParams params,
   required Isar isar,
 }) async {}
 
-/// Top-level function for use in compute. See [DictionaryFormat] for details.
-void prepareFrequenciesMigakuFormat({
+/// Top-level: Migaku archives have no frequency data.
+Future<void> prepareFrequenciesMigakuFormat({
   required PrepareDictionaryParams params,
   required Isar isar,
 }) async {}

@@ -74,7 +74,13 @@ abstract class Language {
 
   /// Overrides the base search function and implements search specific to
   /// a language.
-  final Future<int?> Function(DictionarySearchParams params)
+  ///
+  /// The function runs in a worker isolate (`compute()`) and returns a
+  /// plain-data [SearchResultData] (or `null` for empty results) instead
+  /// of persisting a row in Isar. Post-processing (entry loading,
+  /// definition decompression, in-memory history) happens on the main
+  /// isolate; see `AppModel.searchDictionary`.
+  final Future<SearchResultData?> Function(DictionarySearchParams params)
       prepareSearchResults;
 
   /// A standard format that dictionaries of this language can be found in.
@@ -416,6 +422,7 @@ abstract class Language {
 }
 
 /// Top-level function for use in compute. See [Language] for details.
-Future<int?> prepareSearchResultsStandard(DictionarySearchParams params) {
+Future<SearchResultData?> prepareSearchResultsStandard(
+    DictionarySearchParams params) {
   throw UnimplementedError();
 }
