@@ -189,10 +189,10 @@ class YouTubeTranscriptFetcher {
 
   static const InnerTubeContext _innertubeContext = InnerTubeContext(
     client: InnerTubeClient(
-      hl: 'en',
+      hl: 'en-GB',
       gl: 'US',
-      clientName: 'WEB',
-      clientVersion: '2.20210721.00.00',
+      clientName: 'ANDROID',
+      clientVersion: '20.10.38',
     ),
   );
 
@@ -302,7 +302,7 @@ class YouTubeTranscriptFetcher {
       headers: {
         'Content-Type': 'application/json',
         'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'com.google.android.youtube/20.10.38 (Linux; Android 13)',
       },
       body: jsonEncode({
         'context': _innertubeContext.toJson(),
