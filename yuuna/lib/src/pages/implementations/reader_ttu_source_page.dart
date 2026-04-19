@@ -166,6 +166,10 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
               ],
             ),
           ),
+          bottomNavigationBar: ReaderAudioToolbar(
+            bookKey: widget.item?.uniqueKey ?? 'default',
+            appModel: appModel,
+          ),
         ),
       ),
     );
@@ -376,6 +380,9 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         }
 
         await controller.evaluateJavascript(source: javascriptToExecute);
+        await controller.evaluateJavascript(
+            source:
+                'window.localStorage.setItem("autoBookmark", "1")');
         Future.delayed(const Duration(seconds: 1), _focusNode.requestFocus);
       },
       onTitleChanged: (controller, title) async {
