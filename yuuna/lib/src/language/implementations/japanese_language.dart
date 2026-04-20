@@ -310,11 +310,15 @@ Future<SearchResultData?> prepareSearchResultsJapaneseLanguage(
   }
   if (searchTerm.isEmpty) return null;
 
-  final database = await Isar.open(
-    globalSchemas,
-    directory: params.directoryPath,
-    maxSizeMiB: 8192,
-  );
+  // Reuse the isolate's existing Isar handle if one is already
+  // cached (persistent-worker isolate, second and subsequent calls).
+  // See the same note in standard_searches.dart.
+  final database = Isar.getInstance() ??
+      await Isar.open(
+        globalSchemas,
+        directory: params.directoryPath,
+        maxSizeMiB: 8192,
+      );
 
   final maxGroups = params.maximumDictionaryTermsInResult;
   final builder =

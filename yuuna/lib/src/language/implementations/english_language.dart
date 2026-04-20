@@ -90,11 +90,15 @@ String _expandContractions(String input) {
 Future<SearchResultData?> prepareSearchResultsEnglishLanguage(
     DictionarySearchParams params) async {
   final lemmatizer = Lemmatizer();
-  final database = await Isar.open(
-    globalSchemas,
-    directory: params.directoryPath,
-    maxSizeMiB: 8192,
-  );
+  // Reuse the isolate's existing Isar handle if one is already
+  // cached (persistent-worker isolate, second and subsequent calls).
+  // See the same note in standard_searches.dart.
+  final database = Isar.getInstance() ??
+      await Isar.open(
+        globalSchemas,
+        directory: params.directoryPath,
+        maxSizeMiB: 8192,
+      );
 
   String searchTerm = _expandContractions(params.searchTerm.toLowerCase().trim());
   if (searchTerm.isEmpty) return null;

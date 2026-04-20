@@ -63,11 +63,19 @@ Future<SearchResultData?> runStandardLatinSearch(
 }) async {
   final perfSw = Stopwatch()..start();
 
-  final database = await Isar.open(
-    globalSchemas,
-    directory: params.directoryPath,
-    maxSizeMiB: 8192,
-  );
+  // Reuse the isolate's existing Isar handle if one is already
+  // cached (persistent-worker isolate, second and subsequent calls).
+  // Fall through to Isar.open the first time only. Calling
+  // Isar.open a second time in the same isolate throws
+  // "Instance has already been opened" — the fresh-compute() world
+  // masked this because each compute() was a brand-new isolate with
+  // an empty Isar cache.
+  final database = Isar.getInstance() ??
+      await Isar.open(
+        globalSchemas,
+        directory: params.directoryPath,
+        maxSizeMiB: 8192,
+      );
 
   String searchTerm = params.searchTerm.toLowerCase().trim();
   if (searchTerm.isEmpty) return null;

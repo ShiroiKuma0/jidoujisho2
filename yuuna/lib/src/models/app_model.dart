@@ -5,7 +5,6 @@ import 'dart:isolate';
 import 'dart:ui';
 
 import 'package:audio_service/audio_service.dart' as ag;
-import 'package:cancelable_compute/cancelable_compute.dart' as cancelable;
 import 'package:collection/collection.dart';
 import 'package:clipboard/clipboard.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -39,6 +38,8 @@ import 'package:yuuna/media.dart';
 import 'package:yuuna/models.dart';
 import 'package:yuuna/pages.dart';
 import 'package:yuuna/utils.dart';
+
+import 'search_worker.dart';
 
 /// Schemas used in Isar database.
 final List<CollectionSchema> globalSchemas = [
@@ -1986,14 +1987,155 @@ class AppModel with ChangeNotifier {
     _dictionarySearchCache.clear();
   }
 
-  /// Whether or not the app is currently searching.
-  cancelable.ComputeOperation? _searchOperation;
+  /// The in-flight dictionary search, if any. Settled once the
+  /// persistent worker isolate has replied for the corresponding
+  /// request id. Before Patch C (Phase 1) this was a
+  /// `cancelable.ComputeOperation` wrapping a fresh-isolate
+  /// `compute()` per search; swapping to a long-lived worker removes
+  /// the per-search isolate-spawn and `Isar.open` cost (~150-400 ms
+  /// depending on cold/warm state).
+  Future<SearchResultData?>? _searchOperation;
 
-  /// Gets the raw unprocessed entries straight from a dictionary database
-  /// given a search term. This will be processed later for user viewing.
-  ///
-  /// Returns a [DictionarySearchResult] assembled in-memory from the
-  /// worker's [SearchResultData]. Entries have their
+  /// Persistent worker isolate used to run dictionary searches off
+  /// the UI isolate. Spawned lazily on first search.
+  Isolate? _searchWorkerIsolate;
+
+  /// Worker's own receive port (its inbound side). We capture the
+  /// matching [SendPort] during worker bootstrap and use it for all
+  /// outbound requests.
+  SendPort? _searchWorkerSendPort;
+
+  /// Main-side receive port. Every message from the worker — search
+  /// responses AND `[WORKER-PERF]` lines — funnels through this one
+  /// port; [_onSearchWorkerMessage] dispatches by type.
+  ReceivePort? _searchWorkerReceivePort;
+
+  /// Completes when the worker has finished bootstrapping (i.e. it
+  /// has sent back its [SendPort]). Subsequent calls to
+  /// [_ensureSearchWorkerStarted] await this same completer, so only
+  /// the first call pays the spawn cost.
+  Completer<void>? _searchWorkerReady;
+
+  /// Monotonic correlation-id source for worker requests. Responses
+  /// quote the id that was sent with their request, so we can route
+  /// them back to the awaiting [Completer] in [_searchWorkerPending].
+  int _searchWorkerRequestIdSeq = 0;
+
+  /// In-flight requests keyed by correlation id. On response we
+  /// remove the matching completer and settle it. On `.cancel()` of
+  /// the wrapping operation we remove the entry so a later stale
+  /// response is discarded instead of crashing on a completed
+  /// completer.
+  final Map<int, Completer<SearchResultData?>> _searchWorkerPending = {};
+
+  /// Lazily spawn the persistent search worker. Multiple callers can
+  /// race here — the [_searchWorkerReady] completer de-dupes them.
+  Future<void> _ensureSearchWorkerStarted() async {
+    final existing = _searchWorkerReady;
+    if (existing != null) {
+      return existing.future;
+    }
+    final ready = Completer<void>();
+    _searchWorkerReady = ready;
+
+    final receivePort = ReceivePort();
+    _searchWorkerReceivePort = receivePort;
+    receivePort.listen(_onSearchWorkerMessage);
+
+    final rootToken = RootIsolateToken.instance;
+    if (rootToken == null) {
+      // Shouldn't happen in a real app — the root isolate always has
+      // a token. If it does happen, fail the ready future so the
+      // next search surfaces the cause instead of hanging.
+      _searchWorkerReady = null;
+      _searchWorkerReceivePort?.close();
+      _searchWorkerReceivePort = null;
+      ready.completeError(StateError(
+          'RootIsolateToken.instance is null; cannot spawn search worker'));
+      return ready.future;
+    }
+
+    try {
+      _searchWorkerIsolate = await Isolate.spawn<SearchWorkerInit>(
+        searchWorkerEntry,
+        SearchWorkerInit(
+          replyPort: receivePort.sendPort,
+          rootIsolateToken: rootToken,
+        ),
+      );
+    } catch (e) {
+      // Spawn failed — clear state so the next call retries. Bubble
+      // up so the search itself fails rather than hanging.
+      _searchWorkerReady = null;
+      _searchWorkerReceivePort?.close();
+      _searchWorkerReceivePort = null;
+      ready.completeError(e);
+    }
+
+    return ready.future;
+  }
+
+  /// Dispatch for messages coming back from the worker. Three
+  /// shapes: (a) the worker's own [SendPort] (sent exactly once
+  /// during bootstrap); (b) a [SearchWorkerResponse]; (c) a
+  /// `[WORKER-PERF]` string that should land in the perf log.
+  void _onSearchWorkerMessage(dynamic message) {
+    if (message is SendPort) {
+      _searchWorkerSendPort = message;
+      final ready = _searchWorkerReady;
+      if (ready != null && !ready.isCompleted) {
+        ready.complete();
+      }
+      return;
+    }
+    if (message is SearchWorkerResponse) {
+      final completer = _searchWorkerPending.remove(message.id);
+      if (completer == null || completer.isCompleted) {
+        return;
+      }
+      if (message.error != null) {
+        completer.completeError(Exception(message.error));
+      } else {
+        completer.complete(message.result);
+      }
+      return;
+    }
+    // Fall-through: treat as a string (perf line, error line, or
+    // debug print). Kept narrow to avoid dropping something we care
+    // about on the floor silently.
+    final str = message.toString();
+    if ((str.startsWith('[WORKER-PERF]') || str.startsWith('[WORKER-ERROR]')) &&
+        _kSearchPerfLogging) {
+      _logPerf(str);
+    } else {
+      debugPrint(str);
+    }
+  }
+
+  /// Submit a search to the persistent worker and return a future
+  /// that settles with the reply. [prepareFn] is the per-language
+  /// top-level search function — same reference `compute()` used to
+  /// receive.
+  Future<SearchResultData?> _invokeSearchOnWorker(
+    Future<SearchResultData?> Function(DictionarySearchParams) prepareFn,
+    DictionarySearchParams params,
+  ) async {
+    await _ensureSearchWorkerStarted();
+    final sendPort = _searchWorkerSendPort;
+    if (sendPort == null) {
+      throw StateError('search worker not ready');
+    }
+    final id = ++_searchWorkerRequestIdSeq;
+    final completer = Completer<SearchResultData?>();
+    _searchWorkerPending[id] = completer;
+    sendPort.send(SearchWorkerRequest(
+      id: id,
+      prepareFn: prepareFn,
+      params: params,
+    ));
+    return completer.future;
+  }
+
   /// Gate for search-path instrumentation. Set to false to silence the
   /// `[SEARCH-PERF]` log lines. The Stopwatch calls are kept compiled-in
   /// so the code stays symmetric; the overhead is a few microseconds
@@ -2115,21 +2257,6 @@ class AppModel with ChangeNotifier {
     );
     searchTerm = searchTerm.replaceAll(loneSurrogate, ' ');
 
-    ReceivePort receivePort = ReceivePort();
-    receivePort.listen((message) {
-      // Worker-side perf instrumentation piggy-backs on the isolate
-      // sendPort to avoid a second file handle for /sdcard/tmp. We
-      // recognise `[WORKER-PERF]` lines here and route them through
-      // the same sink as the main-isolate `[SEARCH-PERF]` lines so
-      // they land in the same log for correlation.
-      final str = message.toString();
-      if (str.startsWith('[WORKER-PERF]') && _kSearchPerfLogging) {
-        _logPerf(str);
-      } else {
-        debugPrint(str);
-      }
-    });
-
     // Language-scoped dictionary IDs.
     //
     // For each installed dictionary we decide whether to include it in
@@ -2156,6 +2283,14 @@ class AppModel with ChangeNotifier {
       if (included) languageDictIds.add(d.id);
     }
 
+    // The [sendPort] field is required on DictionarySearchParams but
+    // the persistent worker rewires it to its own reply port before
+    // invoking the search function (so `[WORKER-PERF]` lines reach
+    // [_onSearchWorkerMessage]). We satisfy the type by spawning the
+    // worker early and passing its own inbound port here; any stray
+    // use of this port pre-rewire simply round-trips through the
+    // main isolate's handler.
+    await _ensureSearchWorkerStarted();
     DictionarySearchParams params = DictionarySearchParams(
       searchTerm: searchTerm,
       directoryPath: _databaseDirectory.path,
@@ -2163,21 +2298,24 @@ class AppModel with ChangeNotifier {
       maximumDictionaryTermsInResult: overrideMaximumTerms ?? maximumTerms,
       searchWithWildcards: searchWithWildcards,
       enabledDictionaryIds: languageDictIds,
-      sendPort: receivePort.sendPort,
+      sendPort: _searchWorkerReceivePort!.sendPort,
     );
 
     if (params.searchTerm.trim().isEmpty) {
       return DictionarySearchResult(searchTerm: searchTerm);
     }
 
-    // Phase 1: worker isolate — Isar queries + any language-specific
-    // deinflection / grouping done in `prepareSearchResults`.
+    // Phase 1: persistent worker isolate — Isar queries + language-
+    // specific deinflection / grouping done in `prepareSearchResults`.
+    // Each call rides on the same long-lived isolate, so Isar's open-
+    // once-per-isolate caching works for us and the per-call cost is
+    // just message-pass + the search work itself.
     _phase
       ..reset()
       ..start();
     _searchOperation =
-        cancelable.compute(targetLanguage.prepareSearchResults, params);
-    final SearchResultData? data = await _searchOperation?.value;
+        _invokeSearchOnWorker(targetLanguage.prepareSearchResults, params);
+    final SearchResultData? data = await _searchOperation;
     final int workerMs = _phase.elapsedMilliseconds;
 
     if (data == null || data.groups.isEmpty) {
