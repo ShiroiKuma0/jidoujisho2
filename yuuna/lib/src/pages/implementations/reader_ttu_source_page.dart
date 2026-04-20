@@ -694,6 +694,20 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     dialog, [role="dialog"] { background-color: #111 !important; color: #FFFF00 !important; }
     ::-webkit-scrollbar { background: #000 !important; }
     ::-webkit-scrollbar-thumb { background: #555 !important; }
+    /* Hide TTU's sticky top toolbar + its gesture-target button.
+       The toolbar wrapper is `div.elevation-4.fixed.top-0` wrapping a
+       48 px bar with bg-gray-700; the button sits directly above it as
+       an invisible 32 px tall target for opening/closing the toolbar.
+       Before 2.9.16 the yuuna reader didn't theme the WebView, so
+       TTU's native gray toolbar blended into the book chrome; the
+       yellow-on-black theme introduced in 2.9.16 recolored that
+       toolbar to #111 which reads as an "almost black bar covering
+       the text" at the top of the page. The yuuna reader has its own
+       bottom-bar controls (audio, settings, translate book), so
+       TTU's toolbar is redundant — hiding it is the minimum-risk
+       fix. */
+    .elevation-4.fixed.top-0 { display: none !important; }
+    button.fixed.top-0 { display: none !important; }
   ''';
 
   /// Inject the yellow-on-black UI theme CSS.
