@@ -464,6 +464,7 @@ class _StringsEn implements BaseTranslations<AppLocale, _StringsEn> {
 	String get use_br_tags => 'Use line break tag instead of newline on export';
 	String get prepend_dictionary_names => 'Prepend dictionary name in meaning';
 	String get highlight_on_tap => 'Highlight text on tap';
+	String get confirm_exit_reader => 'Ask for confirmation on book exit';
 	String get no_audio_file => 'No audio file to save.';
 	String get storage_permissions => 'Please grant the following permissions for exporting to AnkiDroid.';
 	String get stream => 'Stream';
@@ -919,6 +920,7 @@ extension on _StringsEn {
 			case 'use_br_tags': return 'Use line break tag instead of newline on export';
 			case 'prepend_dictionary_names': return 'Prepend dictionary name in meaning';
 			case 'highlight_on_tap': return 'Highlight text on tap';
+			case 'confirm_exit_reader': return 'Ask for confirmation on book exit';
 			case 'no_audio_file': return 'No audio file to save.';
 			case 'storage_permissions': return 'Please grant the following permissions for exporting to AnkiDroid.';
 			case 'stream': return 'Stream';

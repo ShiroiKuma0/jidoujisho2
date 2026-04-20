@@ -79,9 +79,32 @@ class BaseSourcePageState<T extends BaseSourcePage> extends BasePageState<T> {
   final _popupPositionNotifier =
       ValueNotifier<JidoujishoPopupPosition?>(JidoujishoPopupPosition.topHalf);
 
+  /// Override to suppress the exit-confirmation dialog (defined in
+  /// [onWillPop]) on a per-source basis. Returning `false` pops the
+  /// page directly — useful for sources that host their own
+  /// close-confirmation preference (e.g. the reader's `confirmClose`
+  /// in TTU's settings). Default `true` preserves the historical
+  /// always-confirm behavior for sources that don't opt in.
+  Future<bool> shouldConfirmExit() async {
+    return true;
+  }
+
   /// Standard warning dialog for leaving a source page. All sources should
   /// use this and wrap their [build] function with a [WillPopScope].
   Future<bool> onWillPop() async {
+    if (!await shouldConfirmExit()) {
+      // Skip the dialog but run the same cleanup the confirmed-exit
+      // path runs (hook + media close), then return true so
+      // WillPopScope pops the page.
+      await onSourcePagePop();
+      await appModel.closeMedia(
+        ref: ref,
+        mediaSource: appModel.currentMediaSource!,
+        item: widget.item,
+      );
+      return true;
+    }
+
     Widget alertDialog = AlertDialog(
       shape: const RoundedRectangleBorder(),
       title: Text(t.exit_media_title),

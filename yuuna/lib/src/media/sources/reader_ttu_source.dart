@@ -464,6 +464,25 @@ class ReaderTtuSource extends ReaderMediaSource {
     );
   }
 
+  /// Whether to show the exit-confirmation dialog when the user backs
+  /// out of a book. Applies universally to all books in the reader —
+  /// this preference is stored at the source level, not per-book. On
+  /// by default.
+  bool get confirmExit {
+    return getPreference<bool>(
+      key: 'reader_confirm_exit',
+      defaultValue: true,
+    );
+  }
+
+  /// Toggles whether the reader asks for confirmation on book exit.
+  void toggleConfirmExit() async {
+    await setPreference<bool>(
+      key: 'reader_confirm_exit',
+      value: !confirmExit,
+    );
+  }
+
   /// Used to fetch JSON for all books in IndexedDB.
   static const String getHistoryJs = '''
 indexedDB.databases().then((databases) => {

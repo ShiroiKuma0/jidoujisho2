@@ -76,6 +76,7 @@ class _DictionaryDialogPageState extends BasePageState {
               buildInvertPageTurningSwitch(),
               buildExtendPageSwitch(),
               buildAdaptThemeSwitch(),
+              buildConfirmExitSwitch(),
               const Space.small(),
               const JidoujishoDivider(),
               buildPageTurningSpeedField(),
@@ -201,6 +202,30 @@ class _DictionaryDialogPageState extends BasePageState {
               onChanged: (value) {
                 source.toggleHighlightOnTap();
                 notifier.value = source.highlightOnTap;
+              },
+            );
+          },
+        )
+      ],
+    );
+  }
+
+  Widget buildConfirmExitSwitch() {
+    ValueNotifier<bool> notifier = ValueNotifier<bool>(source.confirmExit);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(t.confirm_exit_reader),
+        ),
+        ValueListenableBuilder<bool>(
+          valueListenable: notifier,
+          builder: (_, value, __) {
+            return Switch(
+              value: value,
+              onChanged: (value) {
+                source.toggleConfirmExit();
+                notifier.value = source.confirmExit;
               },
             );
           },

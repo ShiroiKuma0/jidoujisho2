@@ -8,6 +8,7 @@ import 'package:hive/hive.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:multi_value_listenable_builder/multi_value_listenable_builder.dart';
 import 'package:subtitle/subtitle.dart';
+import 'package:yuuna/media.dart';
 import 'package:yuuna/models.dart';
 import 'package:yuuna/utils.dart';
 
@@ -331,6 +332,7 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.black,
+      isScrollControlled: true,
       builder: (ctx) => Theme(
         // Force the reader bottom-sheet menu into the same yellow-on-black
         // palette the rest of the reader uses; without this override the
@@ -353,9 +355,10 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
               ),
         ),
         child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-          children: [
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
             ListTile(
               leading: const Icon(Icons.audiotrack),
               title: Text(_mp3Path != null
@@ -441,7 +444,23 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
                   widget.onRemoveSecondary?.call();
                 },
               ),
+            const Divider(),
+            StatefulBuilder(
+              builder: (sbCtx, sbSetState) {
+                final src = ReaderTtuSource.instance;
+                return SwitchListTile(
+                  secondary: const Icon(Icons.exit_to_app),
+                  title: Text(t.confirm_exit_reader),
+                  value: src.confirmExit,
+                  onChanged: (_) {
+                    src.toggleConfirmExit();
+                    sbSetState(() {});
+                  },
+                );
+              },
+            ),
           ],
+        ),
         ),
         ),
       ),

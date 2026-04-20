@@ -342,6 +342,7 @@
     "use_br_tags": "Use line break tag instead of newline on export",
     "prepend_dictionary_names": "Prepend dictionary name in meaning",
     "highlight_on_tap": "Highlight text on tap",
+    "confirm_exit_reader": "Ask for confirmation on book exit",
     "no_audio_file": "No audio file to save.",
     "storage_permissions": "Please grant the following permissions for exporting to AnkiDroid.",
     "stream": "Stream",

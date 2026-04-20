@@ -72,6 +72,15 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     _initGestureVolume();
   }
 
+  /// Gate yuuna's exit-confirmation dialog on the reader-source
+  /// preference. Universal across all books — the toggle lives in
+  /// yuuna's TTU settings dialog (cog icon in the reader's bottom
+  /// bar), not in TTU's own per-book settings.
+  @override
+  Future<bool> shouldConfirmExit() async {
+    return mediaSource.confirmExit;
+  }
+
   Future<void> _initSecondaryBook() async {
     _readerBox = await Hive.openBox('readerAudio');
     String key = _safeBookKey();
