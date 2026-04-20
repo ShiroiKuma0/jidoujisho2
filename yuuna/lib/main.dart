@@ -368,7 +368,18 @@ class _JidoujishoAppState extends ConsumerState<JidoujishoApp>
         dataBuilder: (context) {
           return SpacingData.generate(10);
         },
-        child: child!,
+        // Stack the app's navigator output with a top-right
+        // `Indexing:` overlay that paints above everything in the
+        // Navigator — including in-page Stacks (half-screen dict
+        // popup) and modal dialogs. Driven by the search worker's
+        // `[WORKER-INDEX-PROGRESS]` messages via
+        // `AppModel.indexBuildNotifier`.
+        child: Stack(
+          children: [
+            child!,
+            _IndexBuildOverlay(appModel: appModel),
+          ],
+        ),
       ),
     );
   }
@@ -415,4 +426,96 @@ class JidoujishoLocalizationsDelegate
 
   @override
   bool shouldReload(JidoujishoLocalizationsDelegate old) => false;
+}
+
+/// Top-right "Indexing:" status pill shown while the search worker
+/// builds a per-language in-memory term index. Lives in the
+/// `MaterialApp.builder` Stack so it paints above every route,
+/// dialog, and in-page Stack — in particular above the reader's
+/// half-screen dictionary popup which is rendered in the reader
+/// page's own Stack and would otherwise occlude an in-page overlay.
+///
+/// Renders nothing when the notifier is null. Once `processed` has
+/// caught up to `total` the counter swaps to "Finalizing…" — the
+/// tail of the build is a sort + pack pair we can't meter mid-
+/// operation, and a stuck counter would read as "broken."
+class _IndexBuildOverlay extends StatelessWidget {
+  const _IndexBuildOverlay({required this.appModel});
+
+  final AppModel appModel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 8,
+      right: 8,
+      child: IgnorePointer(
+        // The overlay is purely informational — don't let it block
+        // taps on the UI beneath it.
+        child: ValueListenableBuilder<IndexBuildProgress?>(
+          valueListenable: appModel.indexBuildNotifier,
+          builder: (context, progress, _) {
+            if (progress == null) return const SizedBox.shrink();
+            final bool finalizing =
+                progress.total > 0 && progress.processed >= progress.total;
+            return Material(
+              // Material is needed here because we're above MaterialApp's
+              // Navigator but outside any page's Scaffold; Text renders
+              // with a red "missing material" underline otherwise.
+              color: Colors.transparent,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text(
+                      'Indexing:',
+                      style: TextStyle(
+                        color: Color(0xFFFFFF00),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      finalizing
+                          ? 'Finalizing\u2026'
+                          : '${_formatThousands(progress.processed)} / '
+                              '${_formatThousands(progress.total)}',
+                      style: const TextStyle(
+                        color: Color(0xFFFFFF00),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Group a non-negative integer with spaces every 3 digits —
+  /// "3 144 545" rather than "3144545". Keeps the progress readout
+  /// scannable at a glance. Allocates a StringBuffer per call but
+  /// the overlay only repaints a few times per second.
+  static String _formatThousands(int n) {
+    if (n < 0) return n.toString();
+    final s = n.toString();
+    if (s.length <= 3) return s;
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
+      buf.write(s[i]);
+    }
+    return buf.toString();
+  }
 }

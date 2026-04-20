@@ -301,84 +301,8 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
               ),
             ),
           ),
-        // In-memory term index build progress. Top-right, mirrors the
-        // volume/font indicator styling (yellow text on translucent
-        // black). Visible only while the worker is rebuilding the
-        // per-language index — first few seconds in a new language,
-        // longer for huge corpora like German (~3M terms).
-        //
-        // Two display modes:
-        //   - Collecting (processed < total): shows "N / M" counter.
-        //   - Finalizing (processed >= total): shows "Finalizing…".
-        //     The collect phase is metered by row counts; the tail
-        //     (sort + UTF-8 encode + pack) is a mix of one un-
-        //     yieldable sort plus two O(n) loops and we can't give
-        //     the user a moving number for it, so we swap to a
-        //     static label so they don't wonder if the counter is
-        //     stuck.
-        Positioned(
-          top: MediaQuery.of(context).padding.top + 8,
-          right: 8,
-          child: ValueListenableBuilder<IndexBuildProgress?>(
-            valueListenable: appModel.indexBuildNotifier,
-            builder: (context, progress, _) {
-              if (progress == null) return const SizedBox.shrink();
-              final bool finalizing =
-                  progress.total > 0 && progress.processed >= progress.total;
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text(
-                      'Indexing:',
-                      style: TextStyle(
-                        color: Color(0xFFFFFF00),
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      finalizing
-                          ? 'Finalizing\u2026'
-                          : '${_formatThousands(progress.processed)} / '
-                              '${_formatThousands(progress.total)}',
-                      style: const TextStyle(
-                        color: Color(0xFFFFFF00),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
       ],
     );
-  }
-
-  /// Group a non-negative integer with spaces every 3 digits —
-  /// "3 144 545" rather than "3144545". Keeps the progress readout
-  /// scannable at a glance. Allocates a StringBuffer per call but
-  /// the overlay only repaints a few times per second.
-  static String _formatThousands(int n) {
-    if (n < 0) return n.toString();
-    final s = n.toString();
-    if (s.length <= 3) return s;
-    final buf = StringBuffer();
-    for (int i = 0; i < s.length; i++) {
-      if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
-      buf.write(s[i]);
-    }
-    return buf.toString();
   }
 
   @override
