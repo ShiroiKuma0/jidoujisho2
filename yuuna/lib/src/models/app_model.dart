@@ -124,6 +124,32 @@ final pipSearchTermProvider = StateProvider<String>((ref) => '');
 /// A global [Provider] for listening to search term position changes in PIP mode.
 final pipSearchPositionProvider = StateProvider<int>((ref) => 0);
 
+/// Snapshot of an in-flight in-memory term-index build. Populated by
+/// the search worker while it walks Isar to pack the per-language
+/// term arrays, cleared when the build finishes (or errors). Exposed
+/// on [AppModel.indexBuildNotifier] so a small overlay widget can
+/// show the user "we're indexing language X, N of M rows done" —
+/// explains the slow-path searches during the first few seconds in a
+/// new language.
+class IndexBuildProgress {
+  const IndexBuildProgress({
+    required this.languageCode,
+    required this.processed,
+    required this.total,
+  });
+
+  final String languageCode;
+  final int processed;
+  final int total;
+
+  IndexBuildProgress copyWith({int? processed, int? total}) =>
+      IndexBuildProgress(
+        languageCode: languageCode,
+        processed: processed ?? this.processed,
+        total: total ?? this.total,
+      );
+}
+
 /// A scoped model for parameters that affect the entire application.
 /// RiverPod is used for global state management across multiple layers,
 /// especially for preferences that persist across application restarts.
@@ -2028,6 +2054,15 @@ class AppModel with ChangeNotifier {
   /// completer.
   final Map<int, Completer<SearchResultData?>> _searchWorkerPending = {};
 
+  /// Progress of the in-flight in-memory term-index build, or null
+  /// when no build is running. Updated from `[WORKER-INDEX-PROGRESS]`
+  /// lines emitted by the worker and cleared on
+  /// `[WORKER-INDEX-BUILD]` (success) or `[WORKER-INDEX-ERROR]`
+  /// (failure). The reader UI listens via ValueListenableBuilder and
+  /// shows a small top-right overlay while this is non-null.
+  final ValueNotifier<IndexBuildProgress?> indexBuildNotifier =
+      ValueNotifier<IndexBuildProgress?>(null);
+
   /// Lazily spawn the persistent search worker. Multiple callers can
   /// race here — the [_searchWorkerReady] completer de-dupes them.
   Future<void> _ensureSearchWorkerStarted() async {
@@ -2104,7 +2139,37 @@ class AppModel with ChangeNotifier {
     // debug print). Kept narrow to avoid dropping something we care
     // about on the floor silently.
     final str = message.toString();
-    if ((str.startsWith('[WORKER-PERF]') || str.startsWith('[WORKER-ERROR]')) &&
+
+    // Index progress lines drive the build-progress overlay as well
+    // as landing in the perf log. We parse the three counters out of
+    // the line, update the ValueNotifier, and return — no need for
+    // the generic log branch to touch it.
+    if (str.startsWith('[WORKER-INDEX-PROGRESS]')) {
+      final match = RegExp(
+              r'lang=(\S+)\s+processed=(\d+)\s+total=(\d+)')
+          .firstMatch(str);
+      if (match != null) {
+        indexBuildNotifier.value = IndexBuildProgress(
+          languageCode: match.group(1)!,
+          processed: int.parse(match.group(2)!),
+          total: int.parse(match.group(3)!),
+        );
+      }
+      if (_kSearchPerfLogging) _logPerf(str);
+      return;
+    }
+
+    // Terminal lines — build completed or errored. Either way the
+    // overlay should go away.
+    if (str.startsWith('[WORKER-INDEX-BUILD]') ||
+        str.startsWith('[WORKER-INDEX-ERROR]')) {
+      indexBuildNotifier.value = null;
+      if (_kSearchPerfLogging) _logPerf(str);
+      return;
+    }
+
+    if ((str.startsWith('[WORKER-PERF]') ||
+            str.startsWith('[WORKER-ERROR]')) &&
         _kSearchPerfLogging) {
       _logPerf(str);
     } else {
@@ -2115,11 +2180,18 @@ class AppModel with ChangeNotifier {
   /// Submit a search to the persistent worker and return a future
   /// that settles with the reply. [prepareFn] is the per-language
   /// top-level search function — same reference `compute()` used to
-  /// receive.
-  Future<SearchResultData?> _invokeSearchOnWorker(
-    Future<SearchResultData?> Function(DictionarySearchParams) prepareFn,
-    DictionarySearchParams params,
-  ) async {
+  /// receive. [languageCode] identifies the language for the in-
+  /// memory-index cache key. [buildInMemoryIndex] is true when the
+  /// worker should maintain an index for this language (Phase 2
+  /// fast path applies); false for languages whose search path
+  /// doesn't go through runStandardLatinSearch.
+  Future<SearchResultData?> _invokeSearchOnWorker({
+    required String languageCode,
+    required bool buildInMemoryIndex,
+    required Future<SearchResultData?> Function(DictionarySearchParams)
+        prepareFn,
+    required DictionarySearchParams params,
+  }) async {
     await _ensureSearchWorkerStarted();
     final sendPort = _searchWorkerSendPort;
     if (sendPort == null) {
@@ -2130,6 +2202,8 @@ class AppModel with ChangeNotifier {
     _searchWorkerPending[id] = completer;
     sendPort.send(SearchWorkerRequest(
       id: id,
+      languageCode: languageCode,
+      buildInMemoryIndex: buildInMemoryIndex,
       prepareFn: prepareFn,
       params: params,
     ));
@@ -2309,12 +2383,20 @@ class AppModel with ChangeNotifier {
     // specific deinflection / grouping done in `prepareSearchResults`.
     // Each call rides on the same long-lived isolate, so Isar's open-
     // once-per-isolate caching works for us and the per-call cost is
-    // just message-pass + the search work itself.
+    // just message-pass + the search work itself. Phase 2 adds the
+    // in-memory term index hint; the worker builds it lazily for
+    // languages that flow through runStandardLatinSearch. Japanese
+    // has its own search path that doesn't use the index, so we
+    // suppress the build for it.
     _phase
       ..reset()
       ..start();
-    _searchOperation =
-        _invokeSearchOnWorker(targetLanguage.prepareSearchResults, params);
+    _searchOperation = _invokeSearchOnWorker(
+      languageCode: currentLanguageCode,
+      buildInMemoryIndex: currentLanguageCode != 'ja',
+      prepareFn: targetLanguage.prepareSearchResults,
+      params: params,
+    );
     final SearchResultData? data = await _searchOperation;
     final int workerMs = _phase.elapsedMilliseconds;
 

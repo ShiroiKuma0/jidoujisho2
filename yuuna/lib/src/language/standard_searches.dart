@@ -6,6 +6,9 @@ import 'package:yuuna/dictionary.dart';
 import 'package:yuuna/models.dart';
 import 'package:yuuna/src/language/language_utils.dart';
 
+import '../models/in_memory_term_index.dart';
+import '../models/search_worker.dart';
+
 /// Shared search helpers used by multiple language implementations to
 /// avoid duplicating the same query orchestration. Each helper opens
 /// Isar, runs queries, populates a [SearchResultBuilder], and returns
@@ -101,6 +104,8 @@ Future<SearchResultData?> runStandardLatinSearch(
   int perfBloomSkips = 0;
   int perfPrefixCount = 0;
   int perfScopedDictCount = 0;
+  int perfStage2LoadCount = 0;
+  bool perfFastPath = false;
 
   if (shouldSearchWildcards) {
     // Wildcard path: global (un-scoped) query against the standalone
@@ -201,6 +206,144 @@ Future<SearchResultData?> runStandardLatinSearch(
     }
     perfPrefixCount = prefixes.length;
 
+    // === FAST PATH (Phase 2) ===
+    //
+    // If the worker has finished building the in-memory term index
+    // for this language, the search-worker module stashes it in the
+    // current Zone under [inMemoryTermIndexZoneKey]. A non-null
+    // reading means we can skip every Isar `termEqualTo` /
+    // `termStartsWith` call in stage 1 and do the same lookups over a
+    // sorted byte-packed array — binary search vs B-tree walk, plus
+    // zero per-call Isar fixed overhead.
+    //
+    // Stage 2 (bulk hydrate via `getAllSync`) and stage 3 (builder
+    // feed) are exactly the same as the slow path — only the id-
+    // discovery changes.
+    //
+    // The zone value is null whenever:
+    //   - Phase 2 is disabled for this language (worker request had
+    //     buildInMemoryIndex: false, e.g. Japanese).
+    //   - The index build is still in progress for this language
+    //     (first search or two in a new language).
+    //   - The build failed (an `[WORKER-INDEX-ERROR]` line will have
+    //     been emitted).
+    // In any of those cases we fall through to the r3 slow path
+    // below and the user still gets a result.
+    final InMemoryTermIndex? memIndex =
+        Zone.current[inMemoryTermIndexZoneKey] as InMemoryTermIndex?;
+
+    if (memIndex != null) {
+      const int kFastPathPerCallIdLimit = 32;
+      final int kFastPathMaxCollectedIds = maxGroups * 16;
+
+      final Map<int, List<int>> exactIdsByLength = <int, List<int>>{};
+      final Map<int, List<int>> startsWithIdsByLength =
+          <int, List<int>>{};
+      int collectedIdCount = 0;
+
+      // Stage 1a — exact id discovery.
+      exactPhase:
+      for (final prefix in prefixes) {
+        if (collectedIdCount >= kFastPathMaxCollectedIds) break exactPhase;
+        final variants = extraTermVariants != null
+            ? extraTermVariants(prefix)
+            : <String>[prefix];
+        for (final variant in variants) {
+          if (collectedIdCount >= kFastPathMaxCollectedIds) {
+            break exactPhase;
+          }
+          final ids = memIndex.findExact(variant);
+          if (ids.isNotEmpty) {
+            final bucket = exactIdsByLength[prefix.length] ??= <int>[];
+            bucket.addAll(ids);
+            collectedIdCount += ids.length;
+          }
+        }
+      }
+
+      // Stage 1b — starts-with id discovery (prefixes above the
+      // threshold only).
+      startsWithPhase:
+      for (final prefix in prefixes) {
+        if (collectedIdCount >= kFastPathMaxCollectedIds) {
+          break startsWithPhase;
+        }
+        if (prefix.length < _kStartsWithMinPrefixLen) continue;
+        final variants = extraTermVariants != null
+            ? extraTermVariants(prefix)
+            : <String>[prefix];
+        for (final variant in variants) {
+          if (collectedIdCount >= kFastPathMaxCollectedIds) {
+            break startsWithPhase;
+          }
+          final ids = memIndex.findStartsWith(
+            variant,
+            limit: kFastPathPerCallIdLimit,
+          );
+          if (ids.isNotEmpty) {
+            final bucket = startsWithIdsByLength[prefix.length] ??= <int>[];
+            bucket.addAll(ids);
+            collectedIdCount += ids.length;
+          }
+        }
+      }
+
+      // Stage 2 — bulk hydrate unique ids via Isar.
+      final Set<int> uniqueIds = <int>{};
+      for (final ids in exactIdsByLength.values) {
+        uniqueIds.addAll(ids);
+      }
+      for (final ids in startsWithIdsByLength.values) {
+        uniqueIds.addAll(ids);
+      }
+      perfStage2LoadCount = uniqueIds.length;
+
+      final Map<int, DictionaryEntry> entriesById =
+          <int, DictionaryEntry>{};
+      if (uniqueIds.isNotEmpty) {
+        final loaded =
+            database.dictionaryEntrys.getAllSync(uniqueIds.toList());
+        for (final e in loaded) {
+          if (e != null && e.id != null) {
+            entriesById[e.id!] = e;
+          }
+        }
+      }
+
+      // Stage 3 — feed builder in priority order.
+      for (int length = searchTerm.length; length > 0; length--) {
+        if (builder.remainingGroups() <= 0) break;
+        final ids = exactIdsByLength[length];
+        if (ids == null) continue;
+        final bucket = <DictionaryEntry>[];
+        for (final id in ids) {
+          final e = entriesById[id];
+          if (e != null) bucket.add(e);
+        }
+        if (bucket.isNotEmpty) {
+          builder.addEntries(bucket);
+          builder.recordMatchLength(length);
+        }
+      }
+      for (int length = searchTerm.length; length > 0; length--) {
+        if (builder.remainingGroups() <= 0) break;
+        final ids = startsWithIdsByLength[length];
+        if (ids == null) continue;
+        final bucket = <DictionaryEntry>[];
+        for (final id in ids) {
+          final e = entriesById[id];
+          if (e != null) bucket.add(e);
+        }
+        if (bucket.isNotEmpty) {
+          builder.addEntries(bucket);
+          builder.recordMatchLength(length);
+        }
+      }
+
+      perfFastPath = true;
+      // Skip the slow-path block below entirely.
+    } else {
+
     // 4. Exact-match phase — longest prefix first. One Isar call per
     // prefix variant against the flat `term` index, with a post-index
     // filter that restricts results to the language's dict id set.
@@ -297,6 +440,7 @@ Future<SearchResultData?> runStandardLatinSearch(
         builder.recordMatchLength(prefix.length);
       }
     }
+    } // end else (slow path)
   }
 
   // 6. Worker-side instrumentation summary. Sent via the params'
@@ -309,7 +453,9 @@ Future<SearchResultData?> runStandardLatinSearch(
         'scopedDicts=$perfScopedDictCount '
         'prefixes=$perfPrefixCount '
         'isarCalls=$perfIsarCalls '
-        'bloomSkips=$perfBloomSkips');
+        'bloomSkips=$perfBloomSkips '
+        'stage2Load=$perfStage2LoadCount '
+        'fastPath=$perfFastPath');
   } catch (_) {
     // sendPort closed or otherwise unavailable — nothing to do.
   }
