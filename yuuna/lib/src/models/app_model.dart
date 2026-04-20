@@ -2210,11 +2210,15 @@ class AppModel with ChangeNotifier {
     return completer.future;
   }
 
-  /// Gate for search-path instrumentation. Set to false to silence the
-  /// `[SEARCH-PERF]` log lines. The Stopwatch calls are kept compiled-in
-  /// so the code stays symmetric; the overhead is a few microseconds
-  /// per phase.
-  static const bool _kSearchPerfLogging = true;
+  /// Gate for search-path instrumentation. `const false` dead-codes
+  /// every `if (_kSearchPerfLogging) _logPerf(...)` branch at compile
+  /// time — the log sink is never opened and `_logPerf` itself is
+  /// tree-shaken from the AOT binary. Flip to `true` and rebuild to
+  /// collect `[SEARCH-PERF]` / `[WORKER-PERF]` timing data; the perf
+  /// emit call sites in `standard_searches.dart` and the `[WORKER-
+  /// ERROR]` emit in `search_worker.dart` are block-commented for
+  /// the same reason and will need to be uncommented too.
+  static const bool _kSearchPerfLogging = false;
 
   /// Append-mode sink to the on-device perf log file. Lazily opened on
   /// first write, reused for the rest of the process lifetime.

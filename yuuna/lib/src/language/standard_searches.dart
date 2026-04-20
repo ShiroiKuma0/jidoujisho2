@@ -158,13 +158,18 @@ Future<SearchResultData?> runStandardLatinSearch(
     // because Isar's `anyOf([], ...)` accepts every row).
     final List<int> scopedDictIds = params.enabledDictionaryIds;
     if (scopedDictIds.isEmpty) {
-      // Still emit a worker-perf line so we have a record of the call.
+      // Perf emit disabled for release. Re-enable (and the matching
+      // [WORKER-PERF] branch in AppModel._onSearchWorkerMessage) to
+      // collect timing data. Preserved as dormant source so we don't
+      // have to re-derive the shape of the perf line next time.
+      /*
       final workerMs = perfSw.elapsedMilliseconds;
       try {
         params.send('[WORKER-PERF] term="${params.searchTerm}" '
             'worker=${workerMs}ms scopedDicts=0 prefixes=0 '
             'isarCalls=0 bloomSkips=0 skipped=empty-scope');
       } catch (_) {}
+      */
       return null;
     }
     perfScopedDictCount = scopedDictIds.length;
@@ -443,9 +448,12 @@ Future<SearchResultData?> runStandardLatinSearch(
     } // end else (slow path)
   }
 
-  // 6. Worker-side instrumentation summary. Sent via the params'
-  // sendPort; the main isolate's receivePort listener routes it into
-  // the shared perf log. Fire-and-forget; any send failure is silent.
+  // 6. Worker-side instrumentation summary. Disabled for release —
+  // re-enable (and the matching [WORKER-PERF] branch in
+  // AppModel._onSearchWorkerMessage) to collect timing data.
+  // Preserved as dormant source so the line shape + counter set
+  // don't have to be re-derived when we need them next.
+  /*
   final workerMs = perfSw.elapsedMilliseconds;
   try {
     params.send('[WORKER-PERF] term="${params.searchTerm}" '
@@ -459,6 +467,7 @@ Future<SearchResultData?> runStandardLatinSearch(
   } catch (_) {
     // sendPort closed or otherwise unavailable — nothing to do.
   }
+  */
 
   return builder.build(database);
 }

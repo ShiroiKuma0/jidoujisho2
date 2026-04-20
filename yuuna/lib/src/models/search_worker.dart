@@ -239,14 +239,18 @@ void searchWorkerEntry(SearchWorkerInit init) {
           result: result,
         ));
       } catch (e, st) {
-        // Mirror the error through the perf channel too so it lands
-        // in the perf log alongside the `[SEARCH-PERF]` lines — easier
-        // to correlate than waiting for logcat to surface the error
-        // response.
+        // Diagnostic [WORKER-ERROR] emit disabled for release — the
+        // actual error still propagates to the caller via the
+        // SearchWorkerResponse.error field below, so search failures
+        // surface at the call site either way. Re-enable this block
+        // together with the perf logging in AppModel to get errors
+        // interleaved with the `[SEARCH-PERF]` timeline.
+        /*
         try {
           init.replyPort.send(
               '[WORKER-ERROR] id=${message.id} error=$e\n$st');
         } catch (_) {}
+        */
         init.replyPort.send(SearchWorkerResponse(
           id: message.id,
           error: '$e\n$st',
