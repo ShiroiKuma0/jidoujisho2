@@ -1,4 +1,3 @@
-import 'package:copy_with_extension/copy_with_extension.dart';
 import 'package:isar/isar.dart';
 import 'package:path/path.dart' as path;
 import 'package:yuuna/language.dart';
@@ -13,7 +12,6 @@ part 'dictionary.g.dart';
 /// indexed `dictionaryId` field and are queried directly when needed (for
 /// example, when the user removes this dictionary).
 @Collection()
-@CopyWith()
 class Dictionary {
   /// Initialise a dictionary with details determined from import.
   Dictionary({
@@ -21,6 +19,8 @@ class Dictionary {
     required this.name,
     required this.formatKey,
     required this.order,
+    this.primaryLanguage = '',
+    this.bloomBits = const <byte>[],
     this.hiddenLanguages = const [],
     this.collapsedLanguages = const [],
   });
@@ -38,6 +38,33 @@ class Dictionary {
 
   /// The unique key for the format that the dictionary was sourced from.
   final String formatKey;
+
+  /// The language code (e.g. 'ja', 'de-DE') under which this dictionary
+  /// was imported. Set once at import time from `AppModel.targetLanguage`
+  /// and used by the search pipeline to scope per-language lookups and
+  /// by the UI to surface "dictionary X is tagged as language Y" so the
+  /// user can notice mis-tagged imports.
+  ///
+  /// Empty string for dictionaries imported under schema versions that
+  /// predate this field — callers should treat empty as "unknown" and
+  /// fall back to the legacy `hiddenLanguages` heuristic.
+  @Index()
+  final String primaryLanguage;
+
+  /// Serialised bloom filter over the set of `term` values present in
+  /// this dictionary. Built once at import time and consulted by the
+  /// search pipeline to skip per-dictionary Isar queries for terms that
+  /// are definitely not present. Kept small (target ~10-16 bits per
+  /// entry; ~100-200 KB for a typical 100k-entry dict).
+  ///
+  /// Empty list for dictionaries imported under earlier schemas — the
+  /// search pipeline treats this as "bloom unknown, always query".
+  ///
+  /// Not `final` so the import helper can mutate-then-put after the
+  /// dictionary row already exists (the row is written early so the
+  /// entry-insert loop can reference its id, then we come back to
+  /// fill the bloom once all terms are present).
+  List<byte> bloomBits;
 
   /// The order of this dictionary in terms of user sorting, relative to
   /// other dictionaries.

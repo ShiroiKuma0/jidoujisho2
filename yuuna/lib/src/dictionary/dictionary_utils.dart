@@ -49,6 +49,30 @@ Future<void> depositDictionaryDataHelper(PrepareDictionaryParams params) async {
     await params.dictionaryFormat.preparePitches(params: params, isar: isar);
     await params.dictionaryFormat
         .prepareFrequencies(params: params, isar: isar);
+
+    // After entries are in the database, build a bloom filter over this
+    // dictionary's terms and persist it on the Dictionary row. The
+    // search pipeline consults this filter before issuing a per-
+    // dictionary term query, which lets it skip dictionaries that
+    // definitely don't contain the term — a significant win for
+    // multi-language installs where most candidate prefixes miss in
+    // most dictionaries.
+    //
+    // The query uses the composite `(dictionaryId, term)` index so
+    // the scan is O(entries_in_this_dict), not O(entries_total). We
+    // materialise the full term list (strings only, cheap) and feed it
+    // straight to `TermBloom.build`. No extra Isar round-trip at
+    // runtime.
+    final List<String> terms = isar.dictionaryEntrys
+        .where()
+        .dictionaryIdEqualTo(params.dictionary.id)
+        .termProperty()
+        .findAllSync();
+    final bloom = TermBloom.build(terms);
+    params.dictionary.bloomBits = bloom.toBytes();
+    isar.writeTxnSync(() {
+      isar.dictionarys.putSync(params.dictionary);
+    });
   } catch (e, stack) {
     debugPrint('$e');
     debugPrint('$stack');

@@ -1332,29 +1332,33 @@ class AppModel with ChangeNotifier {
       ),
     );
 
-    /// Dictionary schema v2 migration.
+    /// Dictionary schema migrations.
     ///
-    /// The flat-schema rewrite (2.10.0) drops the on-disk layout that
-    /// previous versions used — including the old `DictionaryHeading`
-    /// and `DictionarySearchResult` collections and the `IsarLinks`
-    /// that joined rows across collections. Old dictionary data is
-    /// unreadable under the new schema, so on first launch under v2 we
-    /// transparently wipe all imported dictionary data. Users need to
-    /// re-import their dictionaries. This is called out prominently in
-    /// the 2.10.0 release notes; no confirmation dialog is shown
-    /// because the data is always re-importable from the original
-    /// archives.
-    const migrationFlagKey = 'dictionary_schema_v2_initialized';
+    /// Historical context:
+    /// - v2 (2.10.0): flat-schema rewrite that dropped `DictionaryHeading`
+    ///   and the IsarLinks-based join layout.
+    /// - v3 (2.10.2): adds `primaryLanguage` + `bloomBits` to `Dictionary`
+    ///   and a composite `(dictionaryId, term)` index on
+    ///   `DictionaryEntry`. The on-disk index layout is not backward-
+    ///   compatible.
+    ///
+    /// Each schema bump wipes all user-imported dictionary data on first
+    /// launch. Users re-import their dictionaries — imports are always
+    /// reproducible from the original archives, so we take the simpler
+    /// path of wiping instead of attempting an in-place upgrade. The
+    /// wipe is called out in the release notes; no confirmation dialog
+    /// is shown.
+    const migrationFlagKey = 'dictionary_schema_v3_initialized';
     final bool migrated =
         _preferences.get(migrationFlagKey, defaultValue: false);
     if (!migrated) {
       try {
         // Clear everything in-database that might reference the old
         // schema. `deleteDictionariesHelper` walks only the schemas in
-        // `globalSchemas` (which no longer includes the old
-        // collections), so this is effectively a v2-data-scope wipe;
-        // the old collections will already have been dropped by Isar
-        // when it opened the DB without their schemas above.
+        // `globalSchemas` (which is the v3 layout), so this wipes all
+        // user-visible dictionary data; any older collections will
+        // already have been dropped by Isar when it opened the DB
+        // without their schemas.
         final ReceivePort port = ReceivePort();
         final DeleteDictionaryParams clearParams = DeleteDictionaryParams(
           directoryPath: _databaseDirectory.path,
@@ -1369,9 +1373,12 @@ class AppModel with ChangeNotifier {
           dictionaryResourceDirectory.createSync();
         }
       } catch (e) {
-        debugPrint('Schema v2 migration wipe failed: $e');
+        debugPrint('Schema v3 migration wipe failed: $e');
       }
       await _preferences.put(migrationFlagKey, true);
+      // Also set the v2 flag so a downgrade doesn't re-run that
+      // migration redundantly.
+      await _preferences.put('dictionary_schema_v2_initialized', true);
     }
 
     /// Ensure dictionaries imported with auto-hide are also hidden for
@@ -1711,6 +1718,11 @@ class AppModel with ChangeNotifier {
         order: order,
         name: name,
         formatKey: dictionaryFormat.uniqueKey,
+        // Language is inferred from the session's current targetLanguage
+        // at import time. The user sees this displayed on the dictionary
+        // management screen so a mis-tagged import (imported while the
+        // wrong language is active) is visible and correctable.
+        primaryLanguage: targetLanguage.languageCode,
         hiddenLanguages: otherLanguageCodes,
       );
 
@@ -1982,6 +1994,97 @@ class AppModel with ChangeNotifier {
   ///
   /// Returns a [DictionarySearchResult] assembled in-memory from the
   /// worker's [SearchResultData]. Entries have their
+  /// Gate for search-path instrumentation. Set to false to silence the
+  /// `[SEARCH-PERF]` log lines. The Stopwatch calls are kept compiled-in
+  /// so the code stays symmetric; the overhead is a few microseconds
+  /// per phase.
+  static const bool _kSearchPerfLogging = true;
+
+  /// Append-mode sink to the on-device perf log file. Lazily opened on
+  /// first write, reused for the rest of the process lifetime.
+  ///
+  /// We try these paths in order, using the first that accepts a write:
+  ///   1. `/sdcard/tmp/jidoujisho-search-perf.log`
+  ///      — requires MANAGE_EXTERNAL_STORAGE to be granted; the app
+  ///        declares this in its manifest and typically has it because
+  ///        it's used for dictionary import, so this usually works.
+  ///      — trivially `adb pull`-able.
+  ///   2. App's external-files directory
+  ///      (`/sdcard/Android/data/<package>/files/search-perf.log`)
+  ///      — accessible even under scoped-storage restrictions; also
+  ///        `adb pull`-able on non-rooted devices.
+  ///   3. App's private documents directory
+  ///      — last resort. Requires `adb shell run-as` to pull, but at
+  ///        least the data is being captured somewhere.
+  ///
+  /// We also emit each line to `print` for logcat (Huawei devices may
+  /// suppress this, but it costs nothing to try).
+  IOSink? _searchPerfSink;
+  String? _searchPerfSinkPath;
+  bool _searchPerfSinkAttempted = false;
+
+  void _logPerf(String line) {
+    // Fire-and-forget stdout in case logcat works on this device.
+    // ignore: avoid_print
+    print(line);
+
+    if (!_searchPerfSinkAttempted) {
+      _searchPerfSinkAttempted = true;
+
+      // Build candidate paths, most pullable first.
+      final List<String> candidates = [];
+      candidates.add('/sdcard/tmp/jidoujisho-search-perf.log');
+      try {
+        // ApplicationDocumentsDirectory is initialised during startup.
+        // If we're called before init somehow, skip silently.
+        final appDir = _appDirectory.path;
+        candidates.add('$appDir/search-perf.log');
+      } catch (_) {}
+      // External-files path computed from the package name. If the
+      // directory doesn't exist, we'll try to create it below.
+      candidates.add(
+          '/sdcard/Android/data/shiroikuma.jidoujishodainihan/files/search-perf.log');
+
+      for (final path in candidates) {
+        try {
+          final f = File(path);
+          final parent = f.parent;
+          if (!parent.existsSync()) {
+            parent.createSync(recursive: true);
+          }
+          final sink = f.openWrite(mode: FileMode.append);
+          final ts = DateTime.now().toIso8601String();
+          sink.writeln('--- [SEARCH-PERF] log opened at $ts (path=$path) ---');
+          _searchPerfSink = sink;
+          _searchPerfSinkPath = path;
+          // ignore: avoid_print
+          print('[SEARCH-PERF] log sink attached: $path');
+          break;
+        } catch (_) {
+          // Try the next candidate.
+        }
+      }
+
+      if (_searchPerfSink == null) {
+        // ignore: avoid_print
+        print('[SEARCH-PERF] WARNING: no writable log sink '
+            '(tried: ${candidates.join(", ")})');
+      }
+    }
+
+    final sink = _searchPerfSink;
+    if (sink != null) {
+      try {
+        sink.writeln(line);
+        // Don't await — keep this fire-and-forget so the flush delay
+        // doesn't inflate `total=` on the next call.
+        sink.flush();
+      } catch (_) {
+        // If the file becomes unwriteable mid-session just give up on it.
+      }
+    }
+  }
+
   /// `compressedDefinitions` decoded via [DefinitionCodec.decode] and
   /// the result is cached so that repeated searches for the same term
   /// are cheap.
@@ -1991,8 +2094,15 @@ class AppModel with ChangeNotifier {
     int? overrideMaximumTerms,
     bool useCache = true,
   }) async {
+    final Stopwatch _total = Stopwatch()..start();
+    final Stopwatch _phase = Stopwatch();
+
     if (_dictionarySearchCache['$searchTerm/$overrideMaximumTerms'] != null &&
         useCache) {
+      if (_kSearchPerfLogging) {
+        _logPerf(
+            '[SEARCH-PERF] cache-hit term="$searchTerm" total=${_total.elapsedMilliseconds}ms');
+      }
       return _dictionarySearchCache['$searchTerm/$overrideMaximumTerms']!;
     }
 
@@ -2007,8 +2117,44 @@ class AppModel with ChangeNotifier {
 
     ReceivePort receivePort = ReceivePort();
     receivePort.listen((message) {
-      debugPrint(message.toString());
+      // Worker-side perf instrumentation piggy-backs on the isolate
+      // sendPort to avoid a second file handle for /sdcard/tmp. We
+      // recognise `[WORKER-PERF]` lines here and route them through
+      // the same sink as the main-isolate `[SEARCH-PERF]` lines so
+      // they land in the same log for correlation.
+      final str = message.toString();
+      if (str.startsWith('[WORKER-PERF]') && _kSearchPerfLogging) {
+        _logPerf(str);
+      } else {
+        debugPrint(str);
+      }
     });
+
+    // Language-scoped dictionary IDs.
+    //
+    // For each installed dictionary we decide whether to include it in
+    // *this* search based on:
+    //   1. Primary path: `primaryLanguage` (v3 schema) equals the
+    //      current session's target language. This is the clean and
+    //      correct signal going forward — set at import time.
+    //   2. Fallback for dictionaries imported under older schemas
+    //      (`primaryLanguage` empty string): include if the dictionary
+    //      is not hidden for the current language. The legacy
+    //      `hiddenLanguages` heuristic was the closest thing we had
+    //      before the dedicated field.
+    //
+    // The resulting list is passed to the worker as
+    // `enabledDictionaryIds`. The worker uses it to scope all per-
+    // dictionary index walks — both the composite `(dictionaryId,
+    // term)` index seeks and the bloom-filter pre-checks.
+    final currentLanguageCode = targetLanguage.languageCode;
+    final languageDictIds = <int>[];
+    for (final d in dictionaries) {
+      final bool included = d.primaryLanguage.isNotEmpty
+          ? d.primaryLanguage == currentLanguageCode
+          : !d.hiddenLanguages.contains(currentLanguageCode);
+      if (included) languageDictIds.add(d.id);
+    }
 
     DictionarySearchParams params = DictionarySearchParams(
       searchTerm: searchTerm,
@@ -2016,7 +2162,7 @@ class AppModel with ChangeNotifier {
       maximumDictionarySearchResults: maximumDictionarySearchResults,
       maximumDictionaryTermsInResult: overrideMaximumTerms ?? maximumTerms,
       searchWithWildcards: searchWithWildcards,
-      enabledDictionaryIds: [],
+      enabledDictionaryIds: languageDictIds,
       sendPort: receivePort.sendPort,
     );
 
@@ -2024,20 +2170,31 @@ class AppModel with ChangeNotifier {
       return DictionarySearchResult(searchTerm: searchTerm);
     }
 
+    // Phase 1: worker isolate — Isar queries + any language-specific
+    // deinflection / grouping done in `prepareSearchResults`.
+    _phase
+      ..reset()
+      ..start();
     _searchOperation =
         cancelable.compute(targetLanguage.prepareSearchResults, params);
     final SearchResultData? data = await _searchOperation?.value;
+    final int workerMs = _phase.elapsedMilliseconds;
 
     if (data == null || data.groups.isEmpty) {
+      if (_kSearchPerfLogging) {
+        _logPerf(
+            '[SEARCH-PERF] empty term="$searchTerm" worker=${workerMs}ms total=${_total.elapsedMilliseconds}ms');
+      }
       return DictionarySearchResult(searchTerm: searchTerm);
     }
 
-    // Post-processing (main isolate): batch-load all entry rows, decode
-    // compressed definitions, load pitch+frequency rows, resolve tag
-    // display metadata, build view-model DictionaryHeading list.
+    // Phase 2+: post-processing on the main isolate, split phase by
+    // phase inside `_buildSearchResultFromData`.
     final result = await _buildSearchResultFromData(
       data: data,
       originalSearchTerm: searchTerm,
+      perfWorkerMs: workerMs,
+      perfTotal: _total,
     );
 
     if (result.headings.isEmpty) {
@@ -2055,8 +2212,15 @@ class AppModel with ChangeNotifier {
   Future<DictionarySearchResult> _buildSearchResultFromData({
     required SearchResultData data,
     required String originalSearchTerm,
+    int perfWorkerMs = 0,
+    Stopwatch? perfTotal,
   }) async {
-    // Flat id list → single getAllSync call.
+    final Stopwatch _ph = Stopwatch();
+
+    // Phase 2: batch-load all entry rows.
+    _ph
+      ..reset()
+      ..start();
     final allEntryIds = data.allEntryIds;
     final loadedEntries = _database.dictionaryEntrys
         .getAllSync(allEntryIds)
@@ -2065,15 +2229,23 @@ class AppModel with ChangeNotifier {
     final entriesById = <int, DictionaryEntry>{
       for (final e in loadedEntries) e.id!: e,
     };
+    final int entryLoadMs = _ph.elapsedMilliseconds;
 
-    // Decode all compressed definitions in parallel.
+    // Phase 3: decode all compressed definitions in parallel.
+    _ph
+      ..reset()
+      ..start();
     await Future.wait(loadedEntries.map((e) async {
       e.decodedDefinitionsCache =
           await DefinitionCodec.decode(e.compressedDefinitions);
     }));
+    final int decodeMs = _ph.elapsedMilliseconds;
 
-    // Collect every pitch and frequency id referenced by the result,
-    // then batch-load those rows.
+    // Phase 4: collect every pitch and frequency id referenced by the
+    // result, then batch-load those rows.
+    _ph
+      ..reset()
+      ..start();
     final pitchIds = <int>{};
     final frequencyIds = <int>{};
     for (final g in data.groups) {
@@ -2092,9 +2264,12 @@ class AppModel with ChangeNotifier {
           .whereType<DictionaryFrequency>())
         f.id!: f,
     };
+    final int pitchFreqMs = _ph.elapsedMilliseconds;
 
-    // Build a per-dictionary tag lookup so the heading.tags list can
-    // be populated without issuing a query per tag name per heading.
+    // Phase 5: dictionary-metadata load + dictionaryRef wiring.
+    _ph
+      ..reset()
+      ..start();
     final dictionaryIds = <int>{};
     for (final e in loadedEntries) {
       dictionaryIds.add(e.dictionaryId);
@@ -2112,8 +2287,6 @@ class AppModel with ChangeNotifier {
         d.id: d,
     };
 
-    // Wire up the transient dictionaryRef fields so downstream
-    // consumers can keep using `entity.dictionary.value!.xxx` access.
     for (final e in loadedEntries) {
       e.dictionaryRef = dictsById[e.dictionaryId];
     }
@@ -2123,7 +2296,13 @@ class AppModel with ChangeNotifier {
     for (final f in frequenciesById.values) {
       f.dictionaryRef = dictsById[f.dictionaryId];
     }
+    final int dictLoadMs = _ph.elapsedMilliseconds;
 
+    // Phase 6: per-dictionary tag index build. Currently issues one
+    // `findAllSync` per dictionary id.
+    _ph
+      ..reset()
+      ..start();
     final tagsByDict = <int, Map<String, DictionaryTag>>{};
     for (final dictId in dictionaryIds) {
       final tags = _database.dictionaryTags
@@ -2132,11 +2311,15 @@ class AppModel with ChangeNotifier {
           .findAllSync();
       tagsByDict[dictId] = {for (final t in tags) t.name: t};
     }
+    final int tagsMs = _ph.elapsedMilliseconds;
 
     DictionaryTag? _lookupTag(int dictId, String name) =>
         tagsByDict[dictId]?[name];
 
-    // Assemble one view-model DictionaryHeading per EntryGroup.
+    // Phase 7: assemble one view-model DictionaryHeading per EntryGroup.
+    _ph
+      ..reset()
+      ..start();
     final headings = <DictionaryHeading>[];
     for (final g in data.groups) {
       final entries = <DictionaryEntry>[];
@@ -2145,7 +2328,6 @@ class AppModel with ChangeNotifier {
         final entry = entriesById[id];
         if (entry == null) continue;
 
-        // Resolve per-entry tags from the entryTagsRaw string.
         final entryTagList = <DictionaryTag>[];
         for (final name in entry.entryTagsRaw.split(' ')) {
           if (name.isEmpty) continue;
@@ -2156,9 +2338,6 @@ class AppModel with ChangeNotifier {
 
         entries.add(entry);
 
-        // Heading-level tags come from headingTagsRaw on any entry in
-        // the group (they describe the headword, not the individual
-        // entry). Dedup by identity.
         for (final name in entry.headingTagsRaw.split(' ')) {
           if (name.isEmpty) continue;
           final tag = _lookupTag(entry.dictionaryId, name);
@@ -2186,14 +2365,42 @@ class AppModel with ChangeNotifier {
         tags: headingTagSet.toList(),
       ));
     }
+    final int assemblyMs = _ph.elapsedMilliseconds;
 
     final id = _nextSearchResultIdCounter++;
-    return DictionarySearchResult(
+    final res = DictionarySearchResult(
       id: id,
       searchTerm: data.searchTerm,
       bestLength: data.bestLength,
       headings: headings,
     );
+
+    if (_kSearchPerfLogging) {
+      final int totalMs = perfTotal?.elapsedMilliseconds ?? 0;
+      final int buildMs = entryLoadMs +
+          decodeMs +
+          pitchFreqMs +
+          dictLoadMs +
+          tagsMs +
+          assemblyMs;
+      _logPerf('[SEARCH-PERF] term="$originalSearchTerm" '
+          'worker=${perfWorkerMs}ms '
+          'entryLoad=${entryLoadMs}ms '
+          'decode=${decodeMs}ms '
+          'pitchFreq=${pitchFreqMs}ms '
+          'dictLoad=${dictLoadMs}ms '
+          'tags=${tagsMs}ms '
+          'assembly=${assemblyMs}ms '
+          'buildTotal=${buildMs}ms '
+          'total=${totalMs}ms '
+          'counts: headings=${headings.length} '
+          'entries=${loadedEntries.length} '
+          'pitches=${pitchesById.length} '
+          'frequencies=${frequenciesById.length} '
+          'dicts=${dictionaryIds.length}');
+    }
+
+    return res;
   }
 
   /// Decode the definitions on a [DictionaryEntry] if they have not

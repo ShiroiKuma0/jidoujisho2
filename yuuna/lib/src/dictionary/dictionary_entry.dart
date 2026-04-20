@@ -55,8 +55,22 @@ class DictionaryEntry {
   int get termLength => term.length;
 
   /// Foreign-key-style reference to the parent [Dictionary] row's id.
-  /// Indexed so deletion of a single dictionary is fast.
+  ///
+  /// Indexed two ways. The standalone `@Index()` keeps
+  /// `.dictionaryIdEqualTo()` available — used by the dictionary-
+  /// delete path and by import-time bloom-filter construction. The
+  /// composite `(dictionaryId, term)` index is what the language-
+  /// scoped search path walks: per-dictionary queries like
+  /// `.dictionaryIdEqualToTermStartsWith(id, prefix)` seek directly
+  /// into that dictionary's slice of the term namespace instead of
+  /// scanning a global term index and filtering after.
+  ///
+  /// Storage cost of the double indexing is minor compared to the
+  /// term index itself and the saved query time.
   @Index()
+  @Index(composite: [
+    CompositeIndex('term', type: IndexType.value, caseSensitive: false)
+  ])
   final int dictionaryId;
 
   /// Popularity score from the source dictionary. Higher = more common.
