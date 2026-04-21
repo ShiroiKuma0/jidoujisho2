@@ -70,6 +70,16 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     WidgetsBinding.instance.addObserver(this);
     _initSecondaryBook();
     _initGestureVolume();
+
+    // Pre-warm the in-memory term index for the current language if
+    // the user has the "on book open" setting selected (default).
+    // Fire-and-forget: the WebView is still loading the book so
+    // there's plenty of idle time to build. Skips itself for
+    // Japanese (different search path) and bails fast if the index
+    // is already built or building in the worker.
+    if (appModelNoUpdate.indexPrewarmMode == IndexPrewarmMode.onBookOpen) {
+      appModelNoUpdate.prewarmIndex();
+    }
   }
 
   /// Gate yuuna's exit-confirmation dialog on the reader-source

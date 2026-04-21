@@ -428,17 +428,20 @@ class JidoujishoLocalizationsDelegate
   bool shouldReload(JidoujishoLocalizationsDelegate old) => false;
 }
 
-/// Top-right "Indexing:" status pill shown while the search worker
-/// builds a per-language in-memory term index. Lives in the
+/// Top-right indexing-progress overlay. Lives in the
 /// `MaterialApp.builder` Stack so it paints above every route,
 /// dialog, and in-page Stack — in particular above the reader's
 /// half-screen dictionary popup which is rendered in the reader
 /// page's own Stack and would otherwise occlude an in-page overlay.
 ///
-/// Renders nothing when the notifier is null. Once `processed` has
-/// caught up to `total` the counter swaps to "Finalizing…" — the
-/// tail of the build is a sort + pack pair we can't meter mid-
-/// operation, and a stuck counter would read as "broken."
+/// Renders nothing when no builds are in flight. Otherwise renders
+/// "Indexing:" as a header followed by one two-line block per
+/// language currently being built — language display name on top,
+/// `processed / total` underneath (or "Finalizing…" when processed
+/// has caught up to total). This honestly reflects that multiple
+/// builds run concurrently in the worker; smaller languages can
+/// finish ahead of larger ones, and each one's row disappears when
+/// its own build completes.
 class _IndexBuildOverlay extends StatelessWidget {
   const _IndexBuildOverlay({required this.appModel});
 
@@ -452,12 +455,10 @@ class _IndexBuildOverlay extends StatelessWidget {
       child: IgnorePointer(
         // The overlay is purely informational — don't let it block
         // taps on the UI beneath it.
-        child: ValueListenableBuilder<IndexBuildProgress?>(
+        child: ValueListenableBuilder<List<IndexBuildProgress>>(
           valueListenable: appModel.indexBuildNotifier,
-          builder: (context, progress, _) {
-            if (progress == null) return const SizedBox.shrink();
-            final bool finalizing =
-                progress.total > 0 && progress.processed >= progress.total;
+          builder: (context, queue, _) {
+            if (queue.isEmpty) return const SizedBox.shrink();
             return Material(
               // Material is needed here because we're above MaterialApp's
               // Navigator but outside any page's Scaffold; Text renders
@@ -474,25 +475,36 @@ class _IndexBuildOverlay extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text(
-                      'Indexing:',
-                      style: TextStyle(
+                    Text(
+                      'Indexing (${queue.length} '
+                      '${queue.length == 1 ? 'language' : 'languages'}):',
+                      style: const TextStyle(
                         color: Color(0xFFFFFF00),
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      finalizing
-                          ? 'Finalizing\u2026'
-                          : '${_formatThousands(progress.processed)} / '
-                              '${_formatThousands(progress.total)}',
-                      style: const TextStyle(
-                        color: Color(0xFFFFFF00),
-                        fontSize: 11,
+                    for (final p in queue) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        appModel.languageDisplayName(p.languageCode),
+                        style: const TextStyle(
+                          color: Color(0xFFFFFF00),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
+                      Text(
+                        (p.total > 0 && p.processed >= p.total)
+                            ? 'Finalizing\u2026'
+                            : '${_formatThousands(p.processed)} / '
+                                '${_formatThousands(p.total)}',
+                        style: const TextStyle(
+                          color: Color(0xFFFFFF00),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

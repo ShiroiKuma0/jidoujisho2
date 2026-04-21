@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:spaces/spaces.dart';
+import 'package:yuuna/models.dart';
 import 'package:yuuna/pages.dart';
 import 'package:yuuna/utils.dart';
 
@@ -78,6 +79,8 @@ class _DictionaryDialogPageState extends BasePageState {
               buildDictionaryFontSizeField(),
               buildDictionaryHeadingFontSizeField(),
               buildMaximumTermsField(),
+              const Space.normal(),
+              buildIndexPrewarmMode(),
               const Space.normal(),
               buildManageDuplicateChecks(),
             ],
@@ -276,6 +279,63 @@ class _DictionaryDialogPageState extends BasePageState {
       Theme.of(context).unselectedWidgetColor.withOpacity(0.05);
   Color get activeTextColor => Theme.of(context).appBarTheme.foregroundColor!;
   Color get inactiveTextColor => Theme.of(context).unselectedWidgetColor;
+
+  /// A three-way radio group for [IndexPrewarmMode]. Renders the
+  /// section title, then three rows of (Radio, label) for the three
+  /// enum values in a fixed order: app-launch, book-open, off.
+  /// Changing the selection persists the new value via
+  /// [AppModel.setIndexPrewarmMode] and rebuilds the local widget so
+  /// the radio dot reflects the new state.
+  Widget buildIndexPrewarmMode() {
+    final ValueNotifier<IndexPrewarmMode> notifier =
+        ValueNotifier<IndexPrewarmMode>(appModel.indexPrewarmMode);
+
+    Widget row(IndexPrewarmMode mode, String label) {
+      return ValueListenableBuilder<IndexPrewarmMode>(
+        valueListenable: notifier,
+        builder: (_, value, __) {
+          return InkWell(
+            onTap: () async {
+              await appModel.setIndexPrewarmMode(mode);
+              notifier.value = mode;
+            },
+            child: Row(
+              children: [
+                Radio<IndexPrewarmMode>(
+                  value: mode,
+                  groupValue: value,
+                  onChanged: (m) async {
+                    if (m == null) return;
+                    await appModel.setIndexPrewarmMode(m);
+                    notifier.value = m;
+                  },
+                ),
+                Expanded(child: Text(label)),
+              ],
+            ),
+          );
+        },
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: Spacing.of(context).insets.onlyLeft.small,
+          child: Text(
+            t.index_prewarm_title,
+            style: textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        row(IndexPrewarmMode.onAppLaunch, t.index_prewarm_on_app_launch),
+        row(IndexPrewarmMode.onBookOpen, t.index_prewarm_on_book_open),
+        row(IndexPrewarmMode.off, t.index_prewarm_off),
+      ],
+    );
+  }
 
   Widget buildManageDuplicateChecks() {
     return InkWell(

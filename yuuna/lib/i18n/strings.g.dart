@@ -465,6 +465,10 @@ class _StringsEn implements BaseTranslations<AppLocale, _StringsEn> {
 	String get prepend_dictionary_names => 'Prepend dictionary name in meaning';
 	String get highlight_on_tap => 'Highlight text on tap';
 	String get confirm_exit_reader => 'Ask for confirmation on book exit';
+	String get index_prewarm_title => 'Pre-build dictionary index';
+	String get index_prewarm_on_app_launch => 'On app launch';
+	String get index_prewarm_on_book_open => 'On book open';
+	String get index_prewarm_off => 'Off (lazy)';
 	String get no_audio_file => 'No audio file to save.';
 	String get storage_permissions => 'Please grant the following permissions for exporting to AnkiDroid.';
 	String get stream => 'Stream';
@@ -921,6 +925,10 @@ extension on _StringsEn {
 			case 'prepend_dictionary_names': return 'Prepend dictionary name in meaning';
 			case 'highlight_on_tap': return 'Highlight text on tap';
 			case 'confirm_exit_reader': return 'Ask for confirmation on book exit';
+			case 'index_prewarm_title': return 'Pre-build dictionary index';
+			case 'index_prewarm_on_app_launch': return 'On app launch';
+			case 'index_prewarm_on_book_open': return 'On book open';
+			case 'index_prewarm_off': return 'Off (lazy)';
 			case 'no_audio_file': return 'No audio file to save.';
 			case 'storage_permissions': return 'Please grant the following permissions for exporting to AnkiDroid.';
 			case 'stream': return 'Stream';

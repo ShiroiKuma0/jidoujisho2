@@ -150,6 +150,32 @@ class IndexBuildProgress {
       );
 }
 
+/// When to pre-build the in-memory term index for the current target
+/// language. The build is a one-off cost per-language per-session
+/// (2-5 seconds on large libraries), after which every search in that
+/// language is served from memory. This enum controls when that cost
+/// is paid — earlier means the first search feels instant at the cost
+/// of startup/book-open latency, later means the opposite.
+///
+/// "off" doesn't disable the index entirely — it just disables pre-
+/// warming. The index still builds lazily the first time a search
+/// actually runs, and the progress overlay appears then.
+enum IndexPrewarmMode {
+  /// Pre-warm during AppModel.initialise. First search anywhere
+  /// (reader, dictionary tab, viewer) is instant; costs a few extra
+  /// seconds of background CPU at app launch.
+  onAppLaunch,
+
+  /// Pre-warm when a book opens in the reader. First in-book word tap
+  /// is instant; costs a few seconds of background CPU while WebView
+  /// is loading the book (usually idle time anyway). Default.
+  onBookOpen,
+
+  /// Don't pre-warm. First search triggers the build with the
+  /// progress overlay showing.
+  off,
+}
+
 /// A scoped model for parameters that affect the entire application.
 /// RiverPod is used for global state management across multiple layers,
 /// especially for preferences that persist across application restarts.
@@ -1437,25 +1463,13 @@ class AppModel with ChangeNotifier {
       }
     }
 
-    /// Preloads the search database in memory.
-    searchDictionary(
-      searchTerm: targetLanguage.helloWorld,
-      searchWithWildcards: false,
-      useCache: false,
-    ).then((_) {
-      /// Preloads for wildcard searches.
-      searchDictionary(
-        searchTerm: '${targetLanguage.helloWorld.substring(0, 1)}?',
-        searchWithWildcards: true,
-        useCache: false,
-      ).then((_) {
-        searchDictionary(
-          searchTerm: '${targetLanguage.helloWorld.substring(0, 1)}*',
-          searchWithWildcards: true,
-          useCache: false,
-        );
-      });
-    });
+    /// Preload the in-memory term-index in memory on startup if the
+    /// user has opted into that (default is `onBookOpen`, in which
+    /// case this is skipped and the reader page kicks off the
+    /// prewarm in its initState). See [IndexPrewarmMode].
+    if (indexPrewarmMode == IndexPrewarmMode.onAppLaunch) {
+      prewarmIndex();
+    }
   }
 
   /// Get whether or not the current theme is dark mode.
@@ -1552,6 +1566,17 @@ class AppModel with ChangeNotifier {
     language.initialise();
 
     notifyListeners();
+
+    // Pre-warm the new language's term index if the user has opted
+    // into app-launch-style prewarming. The semantic there is "any
+    // time the user declares intent to use a language, make it
+    // ready" — so a deliberate language switch via the globe or any
+    // other setter call qualifies just like app launch does.
+    // `onBookOpen` stays book-scoped (reader page's initState does
+    // that); `off` never prewarms.
+    if (indexPrewarmMode == IndexPrewarmMode.onAppLaunch) {
+      prewarmIndex();
+    }
   }
 
   /// Persist a new app locale in preferences.
@@ -2054,14 +2079,42 @@ class AppModel with ChangeNotifier {
   /// completer.
   final Map<int, Completer<SearchResultData?>> _searchWorkerPending = {};
 
-  /// Progress of the in-flight in-memory term-index build, or null
-  /// when no build is running. Updated from `[WORKER-INDEX-PROGRESS]`
-  /// lines emitted by the worker and cleared on
-  /// `[WORKER-INDEX-BUILD]` (success) or `[WORKER-INDEX-ERROR]`
-  /// (failure). The reader UI listens via ValueListenableBuilder and
-  /// shows a small top-right overlay while this is non-null.
-  final ValueNotifier<IndexBuildProgress?> indexBuildNotifier =
-      ValueNotifier<IndexBuildProgress?>(null);
+  /// In-order list of in-flight in-memory term-index builds, keyed
+  /// by language code. Populated by `[WORKER-INDEX-PROGRESS]` lines
+  /// emitted by the worker (first mention enqueues; subsequent lines
+  /// for the same language update its progress) and entries are
+  /// removed on `[WORKER-INDEX-BUILD]` (success) or
+  /// `[WORKER-INDEX-ERROR]` (failure).
+  ///
+  /// Multiple builds run concurrently in the worker, so several
+  /// languages may be in this list simultaneously and finish in any
+  /// order — typically smaller dictionaries (Polish, Russian) finish
+  /// ahead of larger ones (German). The overlay reads this list and
+  /// renders one row per entry with that entry's own
+  /// `processed/total`, so the user sees what's actually happening
+  /// rather than guessing from a single head-of-queue label.
+  ///
+  /// A list rather than a map so widget diffs are natural; a
+  /// [LinkedHashMap] would work too but cons'ing a new list on each
+  /// update is equally cheap at these cardinalities (≤ ~6 entries
+  /// in practice).
+  final ValueNotifier<List<IndexBuildProgress>> indexBuildNotifier =
+      ValueNotifier<List<IndexBuildProgress>>(const []);
+
+  /// Resolve a language code (e.g. `"de"`, `"ja"`) to its display
+  /// name (e.g. `"Deutsch"`, `"日本語"`) by scanning [languages],
+  /// which is keyed by locale tag rather than by bare language code.
+  /// Falls back to the code itself when no match is found (new
+  /// languages, malformed codes) so the overlay never renders an
+  /// empty string.
+  String languageDisplayName(String languageCode) {
+    for (final lang in languages.values) {
+      if (lang.languageCode == languageCode) {
+        return lang.languageName;
+      }
+    }
+    return languageCode;
+  }
 
   /// Lazily spawn the persistent search worker. Multiple callers can
   /// race here — the [_searchWorkerReady] completer de-dupes them.
@@ -2142,28 +2195,65 @@ class AppModel with ChangeNotifier {
 
     // Index progress lines drive the build-progress overlay as well
     // as landing in the perf log. We parse the three counters out of
-    // the line, update the ValueNotifier, and return — no need for
-    // the generic log branch to touch it.
+    // the line, enqueue or update the matching entry in
+    // [indexBuildNotifier], and return — no need for the generic log
+    // branch to touch it.
     if (str.startsWith('[WORKER-INDEX-PROGRESS]')) {
       final match = RegExp(
               r'lang=(\S+)\s+processed=(\d+)\s+total=(\d+)')
           .firstMatch(str);
       if (match != null) {
-        indexBuildNotifier.value = IndexBuildProgress(
-          languageCode: match.group(1)!,
-          processed: int.parse(match.group(2)!),
-          total: int.parse(match.group(3)!),
-        );
+        final langCode = match.group(1)!;
+        final processed = int.parse(match.group(2)!);
+        final total = int.parse(match.group(3)!);
+        final current = indexBuildNotifier.value;
+        final existingIndex =
+            current.indexWhere((p) => p.languageCode == langCode);
+        if (existingIndex < 0) {
+          // First progress line for this language — append to the
+          // list. The overlay renders one row per entry so order
+          // here is just rendering order, not priority.
+          indexBuildNotifier.value = [
+            ...current,
+            IndexBuildProgress(
+              languageCode: langCode,
+              processed: processed,
+              total: total,
+            ),
+          ];
+        } else {
+          // Update this language's row in place; other rows untouched.
+          final next = List<IndexBuildProgress>.from(current);
+          next[existingIndex] = IndexBuildProgress(
+            languageCode: langCode,
+            processed: processed,
+            total: total,
+          );
+          indexBuildNotifier.value = next;
+        }
       }
       if (_kSearchPerfLogging) _logPerf(str);
       return;
     }
 
-    // Terminal lines — build completed or errored. Either way the
-    // overlay should go away.
+    // Terminal lines — build completed or errored for one language.
+    // Just drop that language's row; the per-language layout has
+    // nothing to dwell over since each language is visible
+    // independently in its own row right up to the moment it
+    // completes.
     if (str.startsWith('[WORKER-INDEX-BUILD]') ||
         str.startsWith('[WORKER-INDEX-ERROR]')) {
-      indexBuildNotifier.value = null;
+      final match = RegExp(r'lang=(\S+)').firstMatch(str);
+      final langCode = match?.group(1);
+      if (langCode != null) {
+        final current = indexBuildNotifier.value;
+        final next = current
+            .where((p) => p.languageCode != langCode)
+            .toList(growable: false);
+        if (next.length != current.length) {
+          indexBuildNotifier.value = next;
+        }
+      }
       if (_kSearchPerfLogging) _logPerf(str);
       return;
     }
@@ -4476,6 +4566,69 @@ class AppModel with ChangeNotifier {
   void toggleAutoFullScreenDictionary() async {
     await _preferences.put(
         'auto_full_screen_dictionary', !autoFullScreenDictionary);
+  }
+
+  /// When the in-memory term index should be pre-built for the
+  /// current target language. See [IndexPrewarmMode] for semantics.
+  /// Stored as a string in preferences (the enum name) for forward
+  /// compatibility — new values can be added without invalidating
+  /// existing stored values as long as the set of names is a
+  /// superset. Falls back to the default if the stored value doesn't
+  /// match any known enum case.
+  IndexPrewarmMode get indexPrewarmMode {
+    final String stored = _preferences.get('index_prewarm_mode',
+        defaultValue: IndexPrewarmMode.onBookOpen.name);
+    return IndexPrewarmMode.values.firstWhere(
+      (m) => m.name == stored,
+      orElse: () => IndexPrewarmMode.onBookOpen,
+    );
+  }
+
+  /// Persist a new [IndexPrewarmMode] value. No retroactive effect —
+  /// if a language is already indexed this session, changing the
+  /// setting doesn't un-index it. Takes effect for the next app
+  /// launch or next book open, depending on the new value.
+  Future<void> setIndexPrewarmMode(IndexPrewarmMode mode) async {
+    await _preferences.put('index_prewarm_mode', mode.name);
+    notifyListeners();
+  }
+
+  /// Kick off an in-memory term-index build for the current target
+  /// language without blocking on the result. Idempotent — if a build
+  /// is already in flight or the index is already cached in the
+  /// worker, the extra search here is a no-op on the index lifecycle
+  /// and only pays the cost of one small dictionary search. Safe to
+  /// call from UI initState callbacks.
+  ///
+  /// Skips the work for Japanese, which doesn't use the standard-
+  /// Latin search path and therefore has no in-memory index.
+  ///
+  /// The three chained searches mirror the original startup preload —
+  /// cold-start cost is dominated by the first one; the wildcard
+  /// searches just warm the wildcard code paths at negligible cost.
+  void prewarmIndex() {
+    if (targetLanguage.languageCode == 'ja') return;
+    final String helloWorld = targetLanguage.helloWorld;
+    if (helloWorld.isEmpty) return;
+    // Fire-and-forget. Errors are tolerable here — the real search
+    // will surface them if the worker is genuinely broken.
+    searchDictionary(
+      searchTerm: helloWorld,
+      searchWithWildcards: false,
+      useCache: false,
+    ).then((_) {
+      searchDictionary(
+        searchTerm: '${helloWorld.substring(0, 1)}?',
+        searchWithWildcards: true,
+        useCache: false,
+      ).then((_) {
+        searchDictionary(
+          searchTerm: '${helloWorld.substring(0, 1)}*',
+          searchWithWildcards: true,
+          useCache: false,
+        );
+      });
+    });
   }
 
   /// Search debounce delay in milliseconds by default.
