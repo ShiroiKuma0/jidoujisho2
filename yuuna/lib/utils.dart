@@ -45,3 +45,4 @@ export 'src/utils/misc/app_backup_restore.dart';
 export 'src/utils/misc/dictionary_resource_cleanup.dart';
 export 'src/utils/misc/storage_benchmark_dialog.dart';
 export 'src/utils/components/reader_settings_dialog.dart';
+export 'src/utils/user_fonts_store.dart';

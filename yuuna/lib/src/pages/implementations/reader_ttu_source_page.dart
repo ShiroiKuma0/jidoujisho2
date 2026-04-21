@@ -555,6 +555,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         await _injectUiTheme(controller);
         await _injectIdbPatch(controller);
         await _injectTtfAutofill(controller);
+        await _injectUserFonts(controller);
         _applyReaderSettings();
         _initGestureFontSizeSecondary();
       },
@@ -562,6 +563,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         await _injectUiTheme(controller);
         await _injectIdbPatch(controller);
         await _injectTtfAutofill(controller);
+        await _injectUserFonts(controller);
         _applyReaderSettings();
         WebUri? uri = await controller.getUrl();
         if (uri == null) return;
@@ -669,6 +671,12 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         ReaderAppearanceSettings.load(_readerBox, primaryKey);
     String primaryCss = primarySettings.toCss().replaceAll('\n', ' ');
     String primaryJs = _buildAppearanceInjectJs(primaryCss);
+    // Re-inject the user-fonts stylesheet before the appearance CSS
+    // so newly imported fonts (added via the settings dialog we just
+    // returned from) are actually registered by the time the reader
+    // styles reference them. Without this round-trip, the user would
+    // have to reload the book before the new font took effect.
+    await _injectUserFonts(_controller);
     await _controller.evaluateJavascript(source: primaryJs);
 
     // Secondary (translation book) — load its own settings.
@@ -678,6 +686,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
           ReaderAppearanceSettings.load(_readerBox, secondaryKey);
       String secondaryCss = secondarySettings.toCss().replaceAll('\n', ' ');
       String secondaryJs = _buildAppearanceInjectJs(secondaryCss);
+      await _injectUserFonts(_secondaryController!);
       await _secondaryController!.evaluateJavascript(source: secondaryJs);
     }
   }
@@ -962,6 +971,80 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     await controller.evaluateJavascript(source: _ttfAutofillJs);
   }
 
+  /// Build a tiny `<style id="user-fonts">` stylesheet of `@font-face`
+  /// rules that reference the user's imported fonts by URL on the
+  /// loopback HTTP server [UserFontsStore] runs. This mirrors the way
+  /// TTU itself serves imported fonts (cache API + service worker at
+  /// `/userfonts/*`) — a regular cross-origin HTTP fetch that the
+  /// browser can load asynchronously, without the evaluateJavascript
+  /// payload-size and memory-pressure hazards of a multi-MB base64
+  /// data URL.
+  ///
+  /// Returns the empty string if the server hasn't started yet or no
+  /// fonts are registered, in which case the caller clears the style
+  /// element to avoid leaving stale `@font-face` rules behind.
+  Future<String> _userFontsFaceCss() async {
+    try {
+      await UserFontsStore.instance.initialise();
+    } catch (_) {
+      return '';
+    }
+    final port = UserFontsStore.instance.port;
+    if (port == null) return '';
+    final entries = UserFontsStore.instance.list();
+    if (entries.isEmpty) return '';
+
+    final buf = StringBuffer();
+    for (final entry in entries) {
+      final ext = entry.fileName.split('.').last.toLowerCase();
+      // CSS format hint — must be one of the spec's known values
+      // (`truetype`, `opentype`, `woff`, `woff2`, ...). Unknown hints
+      // cause Chromium to drop the source.
+      final formatHint = ext == 'otf' ? 'opentype' : 'truetype';
+      // Percent-encode the path component so exotic filenames (spaces,
+      // Unicode) survive the URL round-trip.
+      final encodedFileName = Uri.encodeComponent(entry.fileName);
+      // Escape the font family name for CSS double-quoted string.
+      final cssName = entry.name.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
+      buf.write(
+        '@font-face { font-family: "$cssName"; '
+        'src: url("http://127.0.0.1:$port/$encodedFileName") '
+        'format("$formatHint"); '
+        'font-display: swap; } ',
+      );
+    }
+    return buf.toString();
+  }
+
+  /// Read-and-inject of the user-fonts stylesheet. Idempotent —
+  /// replaces any existing `#user-fonts` style element so re-injecting
+  /// after an import or removal doesn't stack rules.
+  Future<void> _injectUserFonts(InAppWebViewController controller) async {
+    final css = await _userFontsFaceCss();
+    if (css.isEmpty) {
+      // Still clear any prior injection so a removed font doesn't
+      // linger after its entry was deleted.
+      await controller.evaluateJavascript(source: '''
+        (function() {
+          var el = document.getElementById('user-fonts');
+          if (el) el.remove();
+        })();
+      ''');
+      return;
+    }
+    final js = '''
+      (function() {
+        var el = document.getElementById('user-fonts');
+        if (el) el.remove();
+        var s = document.createElement('style');
+        s.id = 'user-fonts';
+        s.textContent = ${_escapeJsString(css)};
+        document.head.appendChild(s);
+      })();
+    ''';
+    await controller.evaluateJavascript(source: js);
+  }
+
 
   void setDictionaryColors() async {
     String currentTheme = (await _controller.evaluateJavascript(
@@ -1157,6 +1240,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         await _injectUiTheme(controller);
         await _injectIdbPatch(controller);
         await _injectTtfAutofill(controller);
+        await _injectUserFonts(controller);
         _applyReaderSettings();
         _initGestureFontSize();
         Future.delayed(const Duration(seconds: 1), _focusNode.requestFocus);
@@ -1170,6 +1254,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         await _injectUiTheme(controller);
         await _injectIdbPatch(controller);
         await _injectTtfAutofill(controller);
+        await _injectUserFonts(controller);
         _applyReaderSettings();
       },
       onDownloadStartRequest: onDownloadStartRequest,

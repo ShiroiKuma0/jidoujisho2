@@ -236,19 +236,48 @@ class _ReaderSettingsDialogState extends State<ReaderSettingsDialog> {
       type: FileType.custom,
       allowedExtensions: ['ttf', 'otf'],
     );
-    if (result != null && result.files.single.path != null) {
-      File file = File(result.files.single.path!);
-      Directory appDir = await getApplicationDocumentsDirectory();
-      String fontName = result.files.single.name.split('.').first;
-      String savedPath = '${appDir.path}/$fontName';
-      File newFile = File(savedPath);
-      await newFile.writeAsBytes(await file.readAsBytes());
-      var loader = FontLoader(fontName);
-      Uint8List bytes = await newFile.readAsBytes();
-      loader.addFont(Future.value(ByteData.view(bytes.buffer)));
-      await loader.load();
-      controller.text = fontName;
+    if (result == null || result.files.single.path == null) return;
+    try {
+      // Import into the shared user-fonts store. This copies the file
+      // into our fonts directory, extracts the canonical family name
+      // from the OpenType `name` table, and persists an index entry
+      // so the reader page can re-inject `@font-face` rules for every
+      // imported font on WebView load. Registering with Flutter's
+      // FontLoader as well keeps the font usable in any Flutter-side
+      // UI that reads the same setting (though in practice the reader
+      // content lives in the WebView).
+      final entry = await UserFontsStore.instance.addFont(
+        sourcePath: result.files.single.path!,
+      );
+      final bytes = await UserFontsStore.instance.readBytes(entry);
+      if (bytes != null) {
+        final loader = FontLoader(entry.name);
+        loader.addFont(Future.value(ByteData.view(bytes.buffer)));
+        await loader.load();
+      }
+      controller.text = entry.name;
+      if (!mounted) return;
       setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.black,
+          content: Text(
+            'Added font: ${entry.name}',
+            style: const TextStyle(color: _y),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.black,
+          content: Text(
+            'Could not add font: $e',
+            style: const TextStyle(color: _y),
+          ),
+        ),
+      );
     }
   }
 
@@ -457,6 +486,28 @@ class _ReaderSettingsDialogState extends State<ReaderSettingsDialog> {
   }
 
   Future<void> _pickPredefinedFont(TextEditingController controller) async {
+    await UserFontsStore.instance.initialise();
+    // Structure: (name, isBundled). Bundled fonts are the TTU preset
+    // list; custom fonts are whatever the user has imported via the
+    // font_download icon. Presenting them in one list (rather than two
+    // dialogs) keeps the picker compact, and the small "bundled" /
+    // "custom" label on the right makes provenance obvious.
+    final bundledEntries = _predefinedFonts
+        .map((n) => _PickerRow(name: n, isBundled: true))
+        .toList();
+    final customEntries = UserFontsStore.instance
+        .list()
+        .map((e) => _PickerRow(name: e.name, isBundled: false))
+        .toList();
+    // De-dup by name — if a user imported a font with the exact same
+    // name as a bundled one, the bundled entry wins (it's already
+    // registered and cheaper to use).
+    final seen = <String>{};
+    final rows = <_PickerRow>[];
+    for (final row in [...bundledEntries, ...customEntries]) {
+      if (seen.add(row.name)) rows.add(row);
+    }
+
     String? selected = await showDialog<String>(
       context: context,
       builder: (ctx) {
@@ -469,14 +520,14 @@ class _ReaderSettingsDialogState extends State<ReaderSettingsDialog> {
             width: double.maxFinite,
             child: ListView.builder(
               shrinkWrap: true,
-              itemCount: _predefinedFonts.length,
+              itemCount: rows.length,
               itemBuilder: (ctx, i) {
-                final name = _predefinedFonts[i];
-                final bool isCurrent = controller.text == name;
+                final row = rows[i];
+                final bool isCurrent = controller.text == row.name;
                 return ListTile(
                   dense: true,
                   title: Text(
-                    name,
+                    row.name,
                     style: TextStyle(
                       color: _y,
                       fontSize: 14,
@@ -484,10 +535,15 @@ class _ReaderSettingsDialogState extends State<ReaderSettingsDialog> {
                           isCurrent ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
+                  subtitle: Text(
+                    row.isBundled ? 'bundled' : 'custom',
+                    style: const TextStyle(
+                        color: _y, fontSize: 11),
+                  ),
                   trailing: isCurrent
                       ? const Icon(Icons.check, color: _y, size: 18)
                       : null,
-                  onTap: () => Navigator.of(ctx).pop(name),
+                  onTap: () => Navigator.of(ctx).pop(row.name),
                 );
               },
             ),
@@ -577,4 +633,14 @@ class _ReaderSettingsDialogState extends State<ReaderSettingsDialog> {
       ),
     );
   }
+}
+
+/// Single row in the merged font-picker dialog — groups a display
+/// name with a bundled/custom flag so the list can show both
+/// categories together without a separate section header per group.
+class _PickerRow {
+  const _PickerRow({required this.name, required this.isBundled});
+
+  final String name;
+  final bool isBundled;
 }
