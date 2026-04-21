@@ -3,6 +3,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter/material.dart';
 import 'package:spaces/spaces.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:yuuna/language.dart';
 import 'package:yuuna/media.dart';
 import 'package:yuuna/pages.dart';
 import 'package:yuuna/utils.dart';
@@ -200,6 +201,7 @@ class _HomePageState extends BasePageState<HomePage>
 
   List<Widget> buildActions() {
     return [
+      buildLanguageButton(),
       buildCreatorButton(),
       buildShowMenuButton(),
     ];
@@ -223,6 +225,92 @@ class _HomePageState extends BasePageState<HomePage>
         killOnPop: false,
       ),
     );
+  }
+
+  /// Quick language-switcher: a globe icon in the app bar that opens a
+  /// popup listing every configured language which has at least one
+  /// imported dictionary tagged to it (`Dictionary.primaryLanguage ==
+  /// language.languageCode`). Selecting a language calls
+  /// [AppModel.setTargetLanguage] — same pipeline that the dictionary
+  /// menu's target-language setter uses — so the rest of the app
+  /// (reader, dictionary search, UI text direction) reacts normally.
+  /// The current target language is rendered with a trailing check.
+  Widget buildLanguageButton() {
+    List<Language> candidates = _eligibleLanguages();
+
+    // If zero or one language is eligible there's nothing meaningful
+    // to switch between — suppress the icon so it doesn't clutter the
+    // app bar. The user's setup is effectively single-language.
+    if (candidates.length < 2) {
+      return const SizedBox.shrink();
+    }
+
+    final Language current = appModel.targetLanguage;
+    return PopupMenuButton<Language>(
+      splashRadius: 20,
+      padding: EdgeInsets.zero,
+      tooltip: t.target_language,
+      icon: Icon(
+        Icons.language,
+        color: theme.iconTheme.color,
+        size: 24,
+      ),
+      color: Theme.of(context).popupMenuTheme.color,
+      onSelected: (Language chosen) async {
+        if (chosen.languageCode == current.languageCode) return;
+        await appModel.setTargetLanguage(chosen);
+        if (mounted) setState(() {});
+      },
+      itemBuilder: (context) => candidates.map((lang) {
+        final bool selected = lang.languageCode == current.languageCode;
+        return PopupMenuItem<Language>(
+          value: lang,
+          child: Row(
+            children: [
+              Icon(
+                selected ? Icons.check : Icons.language,
+                size: textTheme.bodyMedium?.fontSize,
+                color: selected ? theme.colorScheme.primary : null,
+              ),
+              const Space.normal(),
+              Expanded(
+                child: Text(
+                  lang.languageName,
+                  style: TextStyle(
+                    fontWeight:
+                        selected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  /// Returns every language in `appModel.languages` that has at least
+  /// one imported dictionary applicable to it under the same
+  /// inclusion logic the search pipeline uses (`AppModel.
+  /// searchDictionary`): a dictionary applies to language X if its
+  /// `primaryLanguage` equals X (v3 schema, set at import time), or
+  /// if `primaryLanguage` is empty and X is not in `hiddenLanguages`
+  /// (legacy pre-v3 heuristic for dictionaries imported before the
+  /// field existed). Always includes the current target language
+  /// regardless, so the user never "loses" their current language
+  /// from the menu.
+  List<Language> _eligibleLanguages() {
+    final dicts = appModel.dictionaries;
+    final String currentCode = appModel.targetLanguage.languageCode;
+    return appModel.languages.values.where((lang) {
+      if (lang.languageCode == currentCode) return true;
+      return dicts.any((d) {
+        if (d.primaryLanguage.isNotEmpty) {
+          return d.primaryLanguage == lang.languageCode;
+        }
+        return !d.hiddenLanguages.contains(lang.languageCode);
+      });
+    }).toList();
   }
 
   Widget buildShowMenuButton() {
