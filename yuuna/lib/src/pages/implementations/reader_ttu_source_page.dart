@@ -554,12 +554,14 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
             source: 'window.localStorage.setItem("autoBookmark", "1")');
         await _injectUiTheme(controller);
         await _injectIdbPatch(controller);
+        await _injectTtfAutofill(controller);
         _applyReaderSettings();
         _initGestureFontSizeSecondary();
       },
       onTitleChanged: (controller, title) async {
         await _injectUiTheme(controller);
         await _injectIdbPatch(controller);
+        await _injectTtfAutofill(controller);
         _applyReaderSettings();
         WebUri? uri = await controller.getUrl();
         if (uri == null) return;
@@ -696,6 +698,21 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
   /// CSS to restyle the ッツ reader UI as yellow-on-black.
   static const String _uiThemeCss = '''
     body, html { background-color: #000 !important; color: #FFFF00 !important; }
+    /* TTU defines `--background-color` (#eceff1) and `--font-color`
+       (rgba(0,0,0,.87)) at :root and uses them via Tailwind's
+       `bg-background-color` etc. on inner controls (inputs, some
+       buttons). Retheme the defaults so those controls pick up our
+       colors automatically — no !important, so TTU's runtime theme
+       switcher can still override for book content when the user
+       picks a reader theme. */
+    :root {
+      --background-color: #111;
+      --font-color: #FFFF00;
+    }
+    /* Explicit override for the Tailwind utility in case stylesheet
+       order or specificity prevents the var change above from
+       flowing through. */
+    .bg-background-color { background-color: #111 !important; }
     * { border-color: #333 !important; }
     button, select, input, textarea {
       background-color: #111 !important;
@@ -714,8 +731,39 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     a { color: #FFFF00 !important; }
     .bg-gray-700, .bg-gray-800, .bg-gray-900,
     [class*="bg-gray"] { background-color: #111 !important; color: #FFFF00 !important; }
+    /* TTU's font-picker dialog (and a few other modals) uses Tailwind's
+       `.bg-white` for the dialog container, plus `.hover:bg-white` /
+       `.hover:text-gray-700` on menu items inside it. Without these
+       overrides, the font-add popup opens white-on-yellow — unreadable
+       against the rest of the app's yellow-on-black theme. */
+    .bg-white, [class*="bg-white"] {
+      background-color: #111 !important;
+      color: #FFFF00 !important;
+    }
+    .hover\\:bg-white:hover, [class*="hover:bg-white"]:hover {
+      background-color: #222 !important;
+      color: #FFFF00 !important;
+    }
+    .hover\\:text-gray-700:hover, [class*="hover:text-gray"]:hover {
+      color: #FFFF00 !important;
+    }
+    .text-gray-700 { color: #FFFF00 !important; }
+    /* Native file-picker "Browse" button (rendered by WebKit) —
+       white by default, needs forcing to match. Appears in TTU's
+       font-add dialog next to the font-name input. */
+    input[type="file"]::-webkit-file-upload-button {
+      background-color: #111 !important;
+      color: #FFFF00 !important;
+      border: 1px solid #555 !important;
+    }
+    /* TTU wraps the file-upload row in a `border border-black`
+       container — black on black would read as a solid block. */
+    .border-black { border-color: #555 !important; }
     .text-gray-500, .text-gray-400, .text-gray-300,
     [class*="text-gray"] { color: #FFFF00 !important; }
+    /* TTU's button base class (`Dn` in the compiled bundle) uses
+       `text-cyan-900` (#164e63) — unreadable on our #111 bg. */
+    .text-cyan-900 { color: #FFFF00 !important; }
     .border-b-gray-200, [class*="border"] { border-color: #333 !important; }
     svg { fill: #FFFF00 !important; color: #FFFF00 !important; }
     .elevation-4 { background-color: #111 !important; }
@@ -763,6 +811,155 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
   /// Inject the IndexedDB patch into a WebView controller.
   Future<void> _injectIdbPatch(InAppWebViewController controller) async {
     await controller.evaluateJavascript(source: _idbPatchJs);
+  }
+
+  /// JavaScript to auto-fill TTU's font-add dialog's Font Name input
+  /// from the TTF/OTF file the user picks. TTU's default workflow
+  /// requires the user to also type the font family name themselves
+  /// before the Add button enables — tedious, and they usually end
+  /// up typing whatever the file already declares internally. This
+  /// hook reads the file's embedded `name` table (OpenType spec) and
+  /// pre-fills the field when it's still blank, then dispatches an
+  /// `input` event so Svelte's bound state in the dialog updates and
+  /// the Add button enables.
+  ///
+  /// Only handles TTF/OTF (uncompressed OpenType). WOFF and WOFF2 are
+  /// compressed — parsing them here would require a Brotli decoder,
+  /// not worth the weight for what's realistically rare (most font
+  /// files users download are TTF or OTF). For WOFF/WOFF2 the user
+  /// still has to type the name by hand.
+  static const String _ttfAutofillJs = r'''
+    (function() {
+      if (window.__ttuFontAutofillApplied) return;
+      window.__ttuFontAutofillApplied = true;
+
+      // Parse an OpenType `name` table out of a raw TTF/OTF buffer
+      // and return the best available family-name string, or null if
+      // we can't recognise the file. Prefers, in order:
+      //   - nameID 16 (Typographic Family Name) — the modern one
+      //   - nameID  1 (Font Family Name)        — legacy fallback
+      //   - nameID  4 (Full Font Name)          — last resort
+      function parseFontName(buffer) {
+        try {
+          var view = new DataView(buffer);
+          var numTables = view.getUint16(4);
+          if (numTables < 1 || numTables > 100) return null;
+          // Walk the table directory for the 'name' tag.
+          var nameOffset = -1;
+          for (var i = 0; i < numTables; i++) {
+            var rec = 12 + i * 16;
+            var tag = String.fromCharCode(
+              view.getUint8(rec),
+              view.getUint8(rec + 1),
+              view.getUint8(rec + 2),
+              view.getUint8(rec + 3)
+            );
+            if (tag === 'name') {
+              nameOffset = view.getUint32(rec + 8);
+              break;
+            }
+          }
+          if (nameOffset < 0) return null;
+          var count = view.getUint16(nameOffset + 2);
+          var stringOffset = view.getUint16(nameOffset + 4);
+          var stringsStart = nameOffset + stringOffset;
+          var cands = { 16: null, 1: null, 4: null };
+          for (var j = 0; j < count; j++) {
+            var off = nameOffset + 6 + j * 12;
+            var platformID = view.getUint16(off);
+            var encodingID = view.getUint16(off + 2);
+            var nameID = view.getUint16(off + 6);
+            var length = view.getUint16(off + 8);
+            var strOff = view.getUint16(off + 10);
+            if (!(nameID in cands)) continue;
+            if (cands[nameID]) continue;
+            var strStart = stringsStart + strOff;
+            var value = null;
+            if (platformID === 3 &&
+                (encodingID === 0 || encodingID === 1)) {
+              // Windows UCS-2 BE
+              var s = '';
+              for (var k = 0; k < length; k += 2) {
+                s += String.fromCharCode(view.getUint16(strStart + k));
+              }
+              value = s;
+            } else if (platformID === 0) {
+              // Unicode platform — also UCS-2 BE
+              var s2 = '';
+              for (var k2 = 0; k2 < length; k2 += 2) {
+                s2 += String.fromCharCode(view.getUint16(strStart + k2));
+              }
+              value = s2;
+            } else if (platformID === 1 && encodingID === 0) {
+              // Mac Roman — approximate with Latin-1 for our purposes.
+              var s3 = '';
+              for (var k3 = 0; k3 < length; k3++) {
+                s3 += String.fromCharCode(view.getUint8(strStart + k3));
+              }
+              value = s3;
+            }
+            if (value) cands[nameID] = value;
+          }
+          return cands[16] || cands[1] || cands[4] || null;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      // Find the companion "Font Name" text input for a given file
+      // input. TTU's add-font dialog groups them inside a nearby
+      // ancestor, so walk up until we find an <input type=text> that
+      // is actually visible.
+      function findNameInput(fileInput) {
+        var container = fileInput.parentElement;
+        while (container && container !== document.body) {
+          var candidates = container.querySelectorAll(
+            'input[type="text"]'
+          );
+          for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            // offsetParent is null for hidden elements — skip those.
+            if (el.offsetParent !== null) return el;
+          }
+          container = container.parentElement;
+        }
+        return null;
+      }
+
+      // Event delegation at the document level so this keeps working
+      // after Svelte re-renders and swaps DOM nodes.
+      document.addEventListener('change', function(ev) {
+        var target = ev.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (target.type !== 'file') return;
+        var file = target.files && target.files[0];
+        if (!file) return;
+        var nameLower = file.name.toLowerCase();
+        if (!nameLower.endsWith('.ttf') && !nameLower.endsWith('.otf')) {
+          return;
+        }
+        var nameInput = findNameInput(target);
+        if (!nameInput) return;
+        // Don't trample user input — only fill if still blank.
+        if (nameInput.value && nameInput.value.trim().length > 0) return;
+        var reader = new FileReader();
+        reader.onload = function() {
+          var extracted = parseFontName(reader.result);
+          if (!extracted) return;
+          var cleaned = extracted.trim();
+          if (!cleaned) return;
+          nameInput.value = cleaned;
+          // Svelte's `bind:value` listens for `input`, not `change`.
+          nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+        reader.readAsArrayBuffer(file);
+      }, false);
+    })();
+  ''';
+
+  /// Inject the TTF/OTF auto-fill hook into a WebView controller.
+  Future<void> _injectTtfAutofill(InAppWebViewController controller) async {
+    await controller.evaluateJavascript(source: _ttfAutofillJs);
   }
 
 
@@ -959,6 +1156,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
                 'window.localStorage.setItem("autoBookmark", "1")');
         await _injectUiTheme(controller);
         await _injectIdbPatch(controller);
+        await _injectTtfAutofill(controller);
         _applyReaderSettings();
         _initGestureFontSize();
         Future.delayed(const Duration(seconds: 1), _focusNode.requestFocus);
@@ -971,6 +1169,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         }
         await _injectUiTheme(controller);
         await _injectIdbPatch(controller);
+        await _injectTtfAutofill(controller);
         _applyReaderSettings();
       },
       onDownloadStartRequest: onDownloadStartRequest,
