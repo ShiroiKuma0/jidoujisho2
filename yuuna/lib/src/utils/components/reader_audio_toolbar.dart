@@ -536,26 +536,48 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
   }
 
   Widget _buildCollapsed() {
+    // When no audio is set, keep the same 48 px bar height as the
+    // expanded view and preserve the right-side controls (translate-
+    // book toggle, three-dot menu) so users can still set the
+    // translation book or open settings. The left region becomes a
+    // tappable "Select audio file" prompt that opens the same menu
+    // as the three-dot button.
     return Container(
+      height: 48,
       color: Colors.black.withOpacity(0.9),
       child: SafeArea(
         top: false,
-        child: InkWell(
-          onTap: _showMenu,
-          child: const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.audiotrack,
-                    size: 16, color: const Color(0xFFFFFF00)),
-                SizedBox(width: 8),
-                Text('Set audiobook',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: const Color(0xFFFFFF00))),
-              ],
-            ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            children: [
+              const SizedBox(width: 4),
+              Expanded(
+                child: InkWell(
+                  onTap: _showMenu,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.audiotrack,
+                            size: 18, color: Color(0xFFFFFF00)),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text('Select audio file',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFFFFFF00)),
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              _buildSecondaryToggle(),
+              _btn(Icons.more_vert, t.show_options, _showMenu),
+              const SizedBox(width: 4),
+            ],
           ),
         ),
       ),
