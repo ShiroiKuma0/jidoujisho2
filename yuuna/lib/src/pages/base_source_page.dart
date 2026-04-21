@@ -75,6 +75,13 @@ class BaseSourcePageState<T extends BaseSourcePage> extends BasePageState<T> {
   /// Whether or not there is a present dictionary result.
   bool get isDictionaryShown => _dictionaryResultNotifier.value != null;
 
+  /// Whether a dictionary search is currently in flight. The half-
+  /// popup is visible whenever this is true *or* [isDictionaryShown]
+  /// is true (see [buildDictionary]); callers that want to detect
+  /// "popup on screen right now" should check both, because
+  /// [isDictionaryShown] alone misses the brief loading phase.
+  bool get isDictionarySearching => _isSearchingNotifier.value;
+
   /// The popup position for the [buildDictionary] widget.
   final _popupPositionNotifier =
       ValueNotifier<JidoujishoPopupPosition?>(JidoujishoPopupPosition.topHalf);

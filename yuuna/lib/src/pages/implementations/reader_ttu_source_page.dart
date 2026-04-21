@@ -91,6 +91,70 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     return mediaSource.confirmExit;
   }
 
+  /// Timestamp of the most recent transition from "popup visible" to
+  /// "popup hidden." Set from [clearDictionaryResult] below, consumed
+  /// by [onWillPop] to close a race on edge-swipe back gestures —
+  /// the popup's inner [Dismissible] fires at ~5% of the horizontal
+  /// swipe and clears the notifiers before Android delivers the
+  /// back event, so by the time `onWillPop` runs the popup looks
+  /// closed even though the same physical gesture caused both.
+  DateTime? _lastPopupDismissAt;
+
+  /// Close the popup and remember when. Mirrors the base-class
+  /// implementation but also clears any WebView-side text selection
+  /// (since our content is a WebView, not a Flutter widget) and
+  /// stamps the dismiss timestamp for [onWillPop]'s grace window.
+  @override
+  void clearDictionaryResult() async {
+    if (isDictionaryShown || isDictionarySearching) {
+      _lastPopupDismissAt = DateTime.now();
+    }
+    super.clearDictionaryResult();
+    unselectWebViewTextSelection(_controller);
+  }
+
+  /// Back-button handling, three cases to distinguish:
+  ///
+  ///   1. Popup currently visible (searching or results on screen).
+  ///      Close the popup and stay in the book. Covers the
+  ///      tap-a-word-then-press-hardware-back flow.
+  ///
+  ///   2. Popup *just* dismissed (within the 250 ms grace window)
+  ///      because the user performed an edge-swipe back. The
+  ///      popup's [Dismissible] wrapper hits its 5% threshold
+  ///      long before Android delivers the back event, so both
+  ///      notifiers read false here even though the swipe that
+  ///      arrived at this callback is the tail of the one that
+  ///      closed the popup. Swallow the back so a single gesture
+  ///      closes only the popup, not the book underneath.
+  ///
+  ///   3. Neither — fall through to the usual exit-confirmation
+  ///      flow so deliberate exits still work.
+  ///
+  /// 250 ms is tight enough that a user who dismisses the popup and
+  /// then deliberately presses back to exit won't hit case 2 unless
+  /// they're unusually fast; human reaction time on a follow-up
+  /// press is typically several hundred ms.
+  @override
+  Future<bool> onWillPop() async {
+    if (isDictionaryShown || isDictionarySearching) {
+      clearDictionaryResult();
+      mediaSource.clearCurrentSentence();
+      return false;
+    }
+    final lastDismiss = _lastPopupDismissAt;
+    if (lastDismiss != null &&
+        DateTime.now().difference(lastDismiss) <
+            const Duration(milliseconds: 250)) {
+      // Eat the timestamp so a repeat back press that happens to
+      // land just outside the window doesn't also get swallowed
+      // because of the original dismiss.
+      _lastPopupDismissAt = null;
+      return false;
+    }
+    return super.onWillPop();
+  }
+
   Future<void> _initSecondaryBook() async {
     _readerBox = await Hive.openBox('readerAudio');
     String key = _safeBookKey();
@@ -358,13 +422,6 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     _isRecursiveSearching = false;
 
     _focusNode.requestFocus();
-  }
-
-  /// Hide the dictionary and dispose of the current result.
-  @override
-  void clearDictionaryResult() async {
-    super.clearDictionaryResult();
-    unselectWebViewTextSelection(_controller);
   }
 
   @override
