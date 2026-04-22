@@ -44,15 +44,20 @@ class AppBackupRestore {
       staging.createSync(recursive: true);
 
       // Copy entire data root, skipping cache and temp directories.
-      // `app_hws_webview` is the Huawei system WebView cache which can be
-      // hundreds of MB on affected devices and provides no value in a backup.
+      // `app_hws_webview` (Huawei's built-in WebView) and `app_webview`
+      // (the standard Android WebView) are intentionally NOT top-level
+      // excluded: their `IndexedDB/` and `Local Storage/` subdirectories
+      // hold TTU's books and reader settings respectively. The
+      // `skipNested` set below keeps their cache subdirectories
+      // (`Cache`, `Code Cache`, `GPU Cache`, `CacheStorage`) out of the
+      // backup at any depth, which is enough to keep the zip to a
+      // reasonable size without throwing away the user's library.
       await _copyDirectory(
         dataRoot,
         staging,
         skip: {
           'cache',
           'code_cache',
-          'app_hws_webview',
           'dictionaryImportWorkingDirectory',
           'backup_staging',
           'backup_restore',
@@ -63,6 +68,8 @@ class AppBackupRestore {
           'GPU Cache',
           'GPUCache',
           'CacheStorage',
+          'Crashpad',
+          'pending_crash_reports',
         },
       );
 
