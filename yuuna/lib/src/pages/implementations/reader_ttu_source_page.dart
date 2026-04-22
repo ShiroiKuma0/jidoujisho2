@@ -62,6 +62,15 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
   Timer? _settingsSnapshotTimer;
   bool _settingsInitialized = false;
 
+  /// Drives periodic bookmark flushes while the reader is active. Fires
+  /// every 10 s, asks each webview to save its current position, and
+  /// waits (with a short timeout) for the IDB bookmark-store put to
+  /// commit. Safety-net against force-kills; the user-visible exit
+  /// paths (back press, lifecycle pause/inactive, dispose) also run a
+  /// flush but can't cover the case where the process is killed
+  /// outright without notice.
+  Timer? _bookmarkFlushTimer;
+
   DateTime? lastMessageTime;
   Orientation? lastOrientation;
 
@@ -106,6 +115,16 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     if (appModelNoUpdate.indexPrewarmMode == IndexPrewarmMode.onBookOpen) {
       appModelNoUpdate.prewarmIndex();
     }
+
+    // Safety net for force-kill / OOM exits that skip every Flutter
+    // lifecycle hook. Fires every 10 s; each tick is a no-op until the
+    // respective webview is ready, then becomes a dispatchEvent plus
+    // an awaited IDB write — cheap enough to run indefinitely while
+    // the reader page is mounted.
+    _bookmarkFlushTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _flushAllBookmarks(),
+    );
   }
 
   /// Gate yuuna's exit-confirmation dialog on the reader-source
@@ -178,6 +197,14 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
       _lastPopupDismissAt = null;
       return false;
     }
+    // Force a bookmark flush on both books before letting the pop
+    // proceed. Awaited because this is the user's most common exit
+    // path and the dispose-time fire-and-forget isn't reliable enough
+    // on its own — the native webview can be torn down before the
+    // async IDB put lands. 500 ms cap keeps the back press snappy
+    // even in the worst case where position hadn't changed and TTU's
+    // handler no-ops (we wait out the full timeout).
+    await _flushAllBookmarks(timeoutMs: 500);
     return super.onWillPop();
   }
 
@@ -422,11 +449,21 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
 
   @override
   void dispose() {
+    _bookmarkFlushTimer?.cancel();
+    _bookmarkFlushTimer = null;
     _settingsSnapshotTimer?.cancel();
     _settingsSnapshotTimer = null;
-    // Fire-and-forget final snapshot so the last in-session change
-    // lands in Hive. If the webview is already torn down the JS
-    // eval throws and we fall back to whatever the last periodic
+    // Fire-and-forget final bookmark flush for both books. dispose()
+    // is synchronous so we can't await; kick the eval off and let the
+    // webview finish the IDB write off-thread during its own
+    // teardown. The onWillPop and lifecycle-pause paths already
+    // awaited a flush in the overwhelmingly common exit cases, so
+    // this is belt-and-suspenders for the rarer Navigator.pop-from-
+    // elsewhere case.
+    _flushAllBookmarks(timeoutMs: 500);
+    // Fire-and-forget final settings snapshot so the last in-session
+    // change lands in Hive. If the webview is already torn down the
+    // JS eval throws and we fall back to whatever the last periodic
     // tick captured — acceptable loss window of up to 5 seconds.
     _snapshotBookSettings();
     WidgetsBinding.instance.removeObserver(this);
@@ -440,6 +477,14 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     if (state == AppLifecycleState.resumed) {
       FocusScope.of(context).unfocus();
       _focusNode.requestFocus();
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      // User backgrounded the app, got a call, switched tasks, etc.
+      // The OS may kill us from here without any further notice, so
+      // force a bookmark flush now. Fire-and-forget: lifecycle
+      // callbacks aren't awaited and we don't want to block the
+      // transition.
+      _flushAllBookmarks(timeoutMs: 500);
     }
   }
 
@@ -657,6 +702,32 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         await _injectUserFonts(controller);
         _applyReaderSettings();
         _initGestureFontSizeSecondary();
+        // TTU auto-bookmarks on scroll and is supposed to restore
+        // the saved position on page load, but the secondary
+        // webview lands at scroll 0 on reopen even when the
+        // bookmark is present in IDB — likely a timing race
+        // between TTU's scrollToBookmark call and the split
+        // pane's final layout. Synthesize the JUMP_TO_BOOKMARK
+        // keybinding (KeyR) a moment after load; TTU awaits the
+        // bookmark promise internally so the call is order-safe
+        // regardless of how long the IDB lookup takes, and it's
+        // a no-op if the position was already restored.
+        Future.delayed(const Duration(milliseconds: 1500), () async {
+          try {
+            await controller.evaluateJavascript(source: r'''
+              (function(){
+                var ev = new KeyboardEvent('keydown', {
+                  code: 'KeyR', key: 'r', bubbles: true,
+                });
+                document.dispatchEvent(ev);
+              })();
+            ''');
+          } catch (_) {
+            // Webview torn down or navigated away — drop the
+            // restore attempt; TTU's own auto-restore may have
+            // succeeded, or the user backed out.
+          }
+        });
       },
       onTitleChanged: (controller, title) async {
         await _injectUiTheme(controller);
@@ -980,18 +1051,91 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     return "'${s.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'";
   }
 
-  /// Monkey-patch IndexedDB.put to force lastBookOpen=0 for translation books.
+  /// JS patch injected into every TTU webview load.
+  ///
+  /// Two jobs:
+  ///
+  ///   1. Monkey-patch `IDBObjectStore.put` so that writes for
+  ///      translation books (title contains '⇨') force
+  ///      `lastBookOpen = 0`. Without this the translation book's
+  ///      open timestamp would bubble it to the top of the library's
+  ///      recent-books list every time the user opens a primary book
+  ///      that has a translation attached, which isn't what the user
+  ///      wants to see there.
+  ///
+  ///   2. Expose `window.__ttuFlushBookmark(timeoutMs)` → Promise.
+  ///      Dispatches a synthetic `beforeunload` event to `window` —
+  ///      which TTU's book page registers a handler for, the same
+  ///      handler the browser would normally fire on real navigation
+  ///      away — and waits for the resulting IDB put on the
+  ///      `bookmark` store to commit. If nothing happens within
+  ///      `timeoutMs` (e.g. position hadn't changed since last save,
+  ///      so TTU no-ops), resolves with `'timeout'`; otherwise
+  ///      `'flushed'`. This is the hook our Dart side uses to force a
+  ///      save at lifecycle boundaries (back press, app pause,
+  ///      widget dispose, periodic timer) without relying on the
+  ///      native webview actually firing `beforeunload` itself on
+  ///      teardown (which it doesn't, reliably).
+  ///
+  /// Idempotent: the outer `__ttuPatchApplied` guard stops the put
+  /// override from stacking across reloads within the same origin.
   static const String _idbPatchJs = '''
     (function() {
       if (window.__ttuPatchApplied) return;
       window.__ttuPatchApplied = true;
+
+      // Queue of pending flush resolvers. Each is a zero-arg function
+      // we call to resolve a `__ttuFlushBookmark` promise with
+      // `'flushed'`. Populated by `__ttuFlushBookmark`, drained by
+      // the next observed bookmark-store put.
+      var bookmarkWaiters = [];
+
       var origPut = IDBObjectStore.prototype.put;
       IDBObjectStore.prototype.put = function(value) {
         if (value && value.title && typeof value.title === 'string'
             && value.title.includes('⇨')) {
           value.lastBookOpen = 0;
         }
-        return origPut.apply(this, arguments);
+        var req = origPut.apply(this, arguments);
+        // Hook bookmark-store puts so any pending flush promises
+        // resolve when the write settles. We resolve on both success
+        // and error — the point is "the attempt finished," not "the
+        // attempt succeeded." If it errored, there's nothing we can
+        // do about it from here anyway.
+        if (this.name === 'bookmark' && bookmarkWaiters.length) {
+          var settle = function() {
+            var pending = bookmarkWaiters.splice(0, bookmarkWaiters.length);
+            for (var i = 0; i < pending.length; i++) {
+              try { pending[i](); } catch (e) {}
+            }
+          };
+          req.addEventListener('success', settle);
+          req.addEventListener('error', settle);
+        }
+        return req;
+      };
+
+      window.__ttuFlushBookmark = function(timeoutMs) {
+        timeoutMs = timeoutMs || 300;
+        return new Promise(function(resolve) {
+          var done = false;
+          var waiter = function() {
+            if (done) return;
+            done = true;
+            resolve('flushed');
+          };
+          bookmarkWaiters.push(waiter);
+          try {
+            window.dispatchEvent(new Event('beforeunload'));
+          } catch (e) {}
+          setTimeout(function() {
+            if (done) return;
+            done = true;
+            var idx = bookmarkWaiters.indexOf(waiter);
+            if (idx >= 0) bookmarkWaiters.splice(idx, 1);
+            resolve('timeout');
+          }, timeoutMs);
+        });
       };
     })();
   ''';
@@ -999,6 +1143,54 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
   /// Inject the IndexedDB patch into a WebView controller.
   Future<void> _injectIdbPatch(InAppWebViewController controller) async {
     await controller.evaluateJavascript(source: _idbPatchJs);
+  }
+
+  /// Force TTU to write its current position to IDB and wait for the
+  /// put to commit (or for [timeoutMs] to elapse, whichever comes
+  /// first). Runs `window.__ttuFlushBookmark` installed by
+  /// [_idbPatchJs]; safe to call if the patch isn't yet installed or
+  /// the webview has already been torn down — both cases resolve
+  /// silently.
+  ///
+  /// The default 300 ms upper bound is comfortably more than an IDB
+  /// put typically takes (single-digit ms on device) but short enough
+  /// that back-press handlers chaining through here don't feel
+  /// sluggish even when nothing actually needed saving.
+  Future<void> _flushBookmark(
+    InAppWebViewController? controller, {
+    int timeoutMs = 300,
+  }) async {
+    if (controller == null) return;
+    try {
+      await controller.evaluateJavascript(source: '''
+        (async function() {
+          if (typeof window.__ttuFlushBookmark !== 'function') {
+            return 'no-patch';
+          }
+          return await window.__ttuFlushBookmark($timeoutMs);
+        })();
+      ''');
+    } catch (_) {
+      // Webview disposed, JS context gone, or eval raced with
+      // teardown. Nothing useful to do — the next flush path (or
+      // the next app launch's restore) will recover.
+    }
+  }
+
+  /// Flush both the primary and secondary books' positions in
+  /// parallel. Does nothing for a book whose controller isn't ready
+  /// yet, so it's safe to call unconditionally from lifecycle hooks
+  /// and timers.
+  Future<void> _flushAllBookmarks({int timeoutMs = 300}) async {
+    final futures = <Future<void>>[];
+    if (_controllerInitialised) {
+      futures.add(_flushBookmark(_controller, timeoutMs: timeoutMs));
+    }
+    if (_secondaryController != null) {
+      futures.add(_flushBookmark(_secondaryController, timeoutMs: timeoutMs));
+    }
+    if (futures.isEmpty) return;
+    await Future.wait(futures);
   }
 
   /// JavaScript to auto-fill TTU's font-add dialog's Font Name input
