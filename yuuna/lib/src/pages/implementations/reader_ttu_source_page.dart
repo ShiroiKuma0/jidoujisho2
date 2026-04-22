@@ -189,6 +189,12 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     _hasSecondary = _secondaryUrl != null;
     double? ratio = (_readerBox.get('split_ratio_$key') as num?)?.toDouble();
     if (ratio != null) _splitRatio = ratio;
+    // Restore whether split view was open on last exit. Gated on
+    // `_hasSecondary` so a stranded `shown=true` from a manager
+    // session where the user never actually picked a book doesn't
+    // resurrect an empty split pane on reopen.
+    bool shown = (_readerBox.get('secondary_shown_$key') as bool?) ?? false;
+    _secondaryShown = shown && _hasSecondary;
     if (mounted) setState(() {});
   }
 
@@ -729,6 +735,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     setState(() {
       _secondaryShown = !_secondaryShown;
     });
+    _readerBox.put('secondary_shown_${_safeBookKey()}', _secondaryShown);
   }
 
   void _openSecondaryManager() {
@@ -737,6 +744,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     setState(() {
       _secondaryShown = true;
     });
+    _readerBox.put('secondary_shown_${_safeBookKey()}', true);
   }
 
   void _removeSecondary() {
@@ -744,6 +752,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     _readerBox.delete('secondary_url_$key');
     _readerBox.delete('secondary_title_$key');
     _readerBox.delete('split_ratio_$key');
+    _readerBox.delete('secondary_shown_$key');
     _secondaryUrl = null;
     _secondaryTitle = null;
     _hasSecondary = false;
