@@ -95,9 +95,64 @@ class _RecursiveDictionaryPageState
         resizeToAvoidBottomInset: false,
         backgroundColor: backgroundColor,
         body: SafeArea(
-          child: Padding(
-            padding: Spacing.of(context).insets.onlyTop.semiSmall,
-            child: buildFloatingSearchBar(),
+          child: Stack(
+            children: [
+              Padding(
+                padding: Spacing.of(context).insets.onlyTop.semiSmall,
+                child: buildFloatingSearchBar(),
+              ),
+              _buildExitOverlay(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Right-edge, vertically-centered yellow button that pops the
+  /// dictionary page. Same action as the back-arrow icon that the
+  /// FloatingSearchBar draws in its top-left — routed through
+  /// `Navigator.pop` directly (or `appModel.shutdown` for the
+  /// launcher `killOnPop` entry point), bypassing FSB's multi-stage
+  /// back handling entirely.
+  ///
+  /// Exists because the system back gesture runs through FSB's
+  /// internal WillPopScope chain, which takes two presses to exit
+  /// — first to collapse the bar, second to pop the route — and
+  /// we couldn't find a way to preempt that from outside the
+  /// package. A persistent overlay gives the user a reliable
+  /// one-tap exit that doesn't depend on FSB's state.
+  Widget _buildExitOverlay() {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: Material(
+          color: Colors.black,
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: Color(0xFFFFFF00), width: 2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            splashColor: const Color(0xFFFFFF00).withOpacity(0.3),
+            onTap: () {
+              if (widget.killOnPop) {
+                appModel.shutdown();
+              } else {
+                Navigator.of(context).pop();
+              }
+            },
+            child: const SizedBox(
+              width: 48,
+              height: 48,
+              child: Icon(
+                Icons.arrow_back,
+                color: Color(0xFFFFFF00),
+                size: 24,
+              ),
+            ),
           ),
         ),
       ),
