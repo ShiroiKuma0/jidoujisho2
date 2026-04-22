@@ -36,6 +36,32 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
   bool _controllerInitialised = false;
   late InAppWebViewController _controller;
 
+  /// TTU stores its reader settings (fonts, line-height, view mode
+  /// etc.) in a single localStorage keyed globally by setting name,
+  /// not per-book. We virtualize the subset below on a per-book
+  /// basis: the first time a given book is opened we seed the keys
+  /// below with the defaults, capture a snapshot into Hive, and
+  /// restore that snapshot on every subsequent open. While the
+  /// book is being read we periodically re-snapshot so in-session
+  /// changes the user makes through TTU's own settings UI persist
+  /// per-book instead of leaking between books.
+  static const List<String> _ttuSettingsKeys = [
+    'fontFamilyGroupOne',
+    'fontFamilyGroupTwo',
+    'lineHeight',
+    'hideSpoilerImage',
+    'viewMode',
+  ];
+  static const Map<String, String> _ttuSettingsDefaults = {
+    'fontFamilyGroupOne': 'Noto Sans JP',
+    'fontFamilyGroupTwo': 'Noto Sans JP',
+    'lineHeight': '1',
+    'hideSpoilerImage': '0',
+    'viewMode': 'continuous',
+  };
+  Timer? _settingsSnapshotTimer;
+  bool _settingsInitialized = false;
+
   DateTime? lastMessageTime;
   Orientation? lastOrientation;
 
@@ -390,6 +416,13 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
 
   @override
   void dispose() {
+    _settingsSnapshotTimer?.cancel();
+    _settingsSnapshotTimer = null;
+    // Fire-and-forget final snapshot so the last in-session change
+    // lands in Hive. If the webview is already torn down the JS
+    // eval throws and we fall back to whatever the last periodic
+    // tick captured — acceptable loss window of up to 5 seconds.
+    _snapshotBookSettings();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -717,6 +750,83 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     _secondaryShown = false;
     _secondaryController = null;
     setState(() {});
+  }
+
+  /// Apply the per-book TTU settings snapshot (fonts, line-height,
+  /// view mode, image blur) into the webview's localStorage before
+  /// TTU reads them on book render. On a book's first ever open we
+  /// seed the hard-coded defaults and persist them to Hive so later
+  /// opens of the same book restore that state even if the global
+  /// localStorage drifted while a different book was being read.
+  Future<void> _applyBookSettings(InAppWebViewController controller) async {
+    final String key = _safeBookKey();
+    final String hiveKey = 'ttu_settings_$key';
+    Map<String, String> settings;
+    final stored = _readerBox.get(hiveKey);
+    if (stored is String) {
+      try {
+        final dynamic parsed = jsonDecode(stored);
+        if (parsed is Map) {
+          settings = {
+            for (final k in _ttuSettingsKeys)
+              k: (parsed[k] ?? _ttuSettingsDefaults[k]!).toString(),
+          };
+        } else {
+          settings = Map<String, String>.of(_ttuSettingsDefaults);
+        }
+      } catch (_) {
+        settings = Map<String, String>.of(_ttuSettingsDefaults);
+      }
+    } else {
+      settings = Map<String, String>.of(_ttuSettingsDefaults);
+      await _readerBox.put(hiveKey, jsonEncode(settings));
+    }
+
+    final StringBuffer sb = StringBuffer('(function(){');
+    settings.forEach((k, v) {
+      final String escVal =
+          v.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
+      sb.write('window.localStorage.setItem("$k","$escVal");');
+    });
+    sb.write('})();');
+    await controller.evaluateJavascript(source: sb.toString());
+    _settingsInitialized = true;
+  }
+
+  /// Snapshot current localStorage values for the tracked TTU
+  /// settings back into Hive under this book's key. Runs on a
+  /// periodic timer plus in `dispose` so in-session changes the
+  /// user makes through TTU's own settings UI persist per-book.
+  /// Silently no-ops if the webview isn't ready or hasn't had
+  /// its initial per-book seed applied yet — we must never clobber
+  /// the Hive entry with values that belong to a different book.
+  Future<void> _snapshotBookSettings() async {
+    if (!_settingsInitialized || !_controllerInitialised) return;
+    try {
+      final String jsArr = _ttuSettingsKeys
+          .map((k) => 'window.localStorage.getItem("$k")')
+          .join(',');
+      final String js = 'JSON.stringify([$jsArr])';
+      final dynamic raw = await _controller.evaluateJavascript(source: js);
+      if (raw == null) return;
+      final String rawStr = raw is String ? raw : raw.toString();
+      final dynamic parsed = jsonDecode(rawStr);
+      if (parsed is! List) return;
+      final Map<String, String> snap = {};
+      for (int i = 0; i < _ttuSettingsKeys.length; i++) {
+        final dynamic v = i < parsed.length ? parsed[i] : null;
+        snap[_ttuSettingsKeys[i]] =
+            v == null ? _ttuSettingsDefaults[_ttuSettingsKeys[i]]! : v.toString();
+      }
+      await _readerBox.put(
+        'ttu_settings_${_safeBookKey()}',
+        jsonEncode(snap),
+      );
+    } catch (_) {
+      // Webview not ready, JS eval failed, or Hive write raced with
+      // dispose — drop the snapshot silently and let the next tick
+      // (or the next book open) catch up.
+    }
   }
 
   /// Apply per-book reader appearance settings via CSS injection.
@@ -1237,6 +1347,19 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
             }
           },
         );
+
+        // Periodically sync the current localStorage values back to
+        // this book's Hive entry so changes the user makes through
+        // TTU's own settings UI survive across opens. Gated inside
+        // `_snapshotBookSettings` by `_settingsInitialized` so the
+        // first tick can't fire before the initial per-book seed
+        // (which would clobber the entry with the previous book's
+        // globally-shared values).
+        _settingsSnapshotTimer?.cancel();
+        _settingsSnapshotTimer = Timer.periodic(
+          const Duration(seconds: 5),
+          (_) => _snapshotBookSettings(),
+        );
       },
       onCreateWindow: (controller, createWindowRequest) async {
         showDialog(
@@ -1297,6 +1420,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         await controller.evaluateJavascript(
             source:
                 'window.localStorage.setItem("autoBookmark", "1")');
+        await _applyBookSettings(controller);
         await _injectUiTheme(controller);
         await _injectIdbPatch(controller);
         await _injectTtfAutofill(controller);
@@ -1311,6 +1435,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
         if (mediaSource.adaptTtuTheme) {
           setDictionaryColors();
         }
+        await _applyBookSettings(controller);
         await _injectUiTheme(controller);
         await _injectIdbPatch(controller);
         await _injectTtfAutofill(controller);

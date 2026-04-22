@@ -31,7 +31,7 @@ class ReaderAppearanceSettings {
     this.marginRight = 0,
     this.marginBottom = 0,
     this.paragraphSpacing = 0.6,
-    this.lineSpacing = 1.65,
+    this.lineSpacing = 1.0,
     this.fontFamily = '',
     this.fontFamilySecondary = '',
   });
@@ -52,7 +52,7 @@ class ReaderAppearanceSettings {
           (box.get('rs_paraSpacing_$bookKey', defaultValue: 0.6) as num)
               .toDouble(),
       lineSpacing:
-          (box.get('rs_lineSpacing_$bookKey', defaultValue: 1.65) as num)
+          (box.get('rs_lineSpacing_$bookKey', defaultValue: 1.0) as num)
               .toDouble(),
       fontFamily: box.get('rs_fontFamily_$bookKey', defaultValue: ''),
       fontFamilySecondary:
@@ -404,7 +404,7 @@ class _ReaderSettingsDialogState extends State<ReaderSettingsDialog> {
 
               // Line spacing
               _numberField('Line spacing', _lineSpacingController,
-                  decimal: true, resetValue: '1.65'),
+                  decimal: true, resetValue: '1'),
               const SizedBox(height: 12),
 
               // Paragraph spacing
