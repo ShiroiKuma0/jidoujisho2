@@ -407,18 +407,21 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
   @override
   void onSearch(String searchTerm, {String? sentence = ''}) async {
     _isRecursiveSearching = true;
-    if (appModel.isMediaOpen) {
-      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      await Future.delayed(const Duration(milliseconds: 5), () {});
-    }
+    // Previously toggled SystemUiMode to edgeToEdge here and back to
+    // immersiveSticky afterwards — ostensibly to unblock the
+    // dictionary's FloatingSearchBar from the system nav bar. The
+    // round-trip caused a visible reflow on the reader when the
+    // dictionary popped back: the mode change fires an async
+    // platform-channel call that updates window insets, which
+    // triggers MediaQuery to rebuild, which reflows the WebView.
+    // On screen this looked like the book scrolling two lines
+    // further in for a frame and then snapping back to the original
+    // position. The dictionary's search bar renders fine with the
+    // system nav present, so the toggle is just unnecessary churn.
     await appModel.openRecursiveDictionarySearch(
       searchTerm: searchTerm,
       killOnPop: false,
     );
-    if (appModel.isMediaOpen) {
-      await Future.delayed(const Duration(milliseconds: 5), () {});
-      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    }
     _isRecursiveSearching = false;
 
     _focusNode.requestFocus();
