@@ -487,73 +487,130 @@ class _ReaderSettingsDialogState extends State<ReaderSettingsDialog> {
 
   Future<void> _pickPredefinedFont(TextEditingController controller) async {
     await UserFontsStore.instance.initialise();
-    // Structure: (name, isBundled). Bundled fonts are the TTU preset
-    // list; custom fonts are whatever the user has imported via the
-    // font_download icon. Presenting them in one list (rather than two
-    // dialogs) keeps the picker compact, and the small "bundled" /
-    // "custom" label on the right makes provenance obvious.
-    final bundledEntries = _predefinedFonts
-        .map((n) => _PickerRow(name: n, isBundled: true))
-        .toList();
-    final customEntries = UserFontsStore.instance
-        .list()
-        .map((e) => _PickerRow(name: e.name, isBundled: false))
-        .toList();
-    // De-dup by name — if a user imported a font with the exact same
-    // name as a bundled one, the bundled entry wins (it's already
-    // registered and cheaper to use).
-    final seen = <String>{};
-    final rows = <_PickerRow>[];
-    for (final row in [...bundledEntries, ...customEntries]) {
-      if (seen.add(row.name)) rows.add(row);
+
+    // Build the row list from current state. Extracted into a closure
+    // so the dialog can recompute it after an in-dialog deletion and
+    // rebuild without having to tear the whole dialog down.
+    List<_PickerRow> buildRows() {
+      final bundled = _predefinedFonts
+          .map((n) => _PickerRow(name: n, isBundled: true))
+          .toList();
+      final custom = UserFontsStore.instance
+          .list()
+          .map((e) => _PickerRow(name: e.name, isBundled: false))
+          .toList();
+      // De-dup by name — if a user imported a font with the exact same
+      // name as a bundled one, the bundled entry wins (it's already
+      // registered and cheaper to use).
+      final seen = <String>{};
+      final rows = <_PickerRow>[];
+      for (final row in [...bundled, ...custom]) {
+        if (seen.add(row.name)) rows.add(row);
+      }
+      return rows;
     }
 
     String? selected = await showDialog<String>(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: Colors.black,
-          title: const Text('Pick a font',
-              style: TextStyle(color: _y, fontSize: 14)),
-          contentPadding: const EdgeInsets.symmetric(vertical: 8),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: rows.length,
-              itemBuilder: (ctx, i) {
-                final row = rows[i];
-                final bool isCurrent = controller.text == row.name;
-                return ListTile(
-                  dense: true,
-                  title: Text(
-                    row.name,
-                    style: TextStyle(
-                      color: _y,
-                      fontSize: 14,
-                      fontWeight:
-                          isCurrent ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                  subtitle: Text(
-                    row.isBundled ? 'bundled' : 'custom',
-                    style: const TextStyle(
-                        color: _y, fontSize: 11),
-                  ),
-                  trailing: isCurrent
-                      ? const Icon(Icons.check, color: _y, size: 18)
-                      : null,
-                  onTap: () => Navigator.of(ctx).pop(row.name),
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel', style: TextStyle(color: _y)),
-            ),
-          ],
+        // StatefulBuilder so the inner list can refresh after the user
+        // deletes a custom font, without closing the picker.
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final rows = buildRows();
+            return AlertDialog(
+              backgroundColor: Colors.black,
+              title: const Text('Pick a font',
+                  style: TextStyle(color: _y, fontSize: 14)),
+              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: rows.length,
+                  itemBuilder: (ctx, i) {
+                    final row = rows[i];
+                    final bool isCurrent = controller.text == row.name;
+                    // Trailing widgets: current-selection check + a
+                    // delete icon for custom rows. Row.onTap selects
+                    // the font; the delete icon has its own tap
+                    // handler that stops propagation via its own
+                    // InkWell and won't fire the row's onTap.
+                    final trailingChildren = <Widget>[];
+                    if (isCurrent) {
+                      trailingChildren.add(
+                        const Icon(Icons.check, color: _y, size: 18),
+                      );
+                    }
+                    if (!row.isBundled) {
+                      if (trailingChildren.isNotEmpty) {
+                        trailingChildren.add(const SizedBox(width: 4));
+                      }
+                      trailingChildren.add(
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: _y, size: 18),
+                          tooltip: 'Remove imported font',
+                          splashRadius: 16,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                              minWidth: 32, minHeight: 32),
+                          onPressed: () async {
+                            final confirmed =
+                                await _confirmRemoveFont(row.name);
+                            if (!confirmed) return;
+                            await UserFontsStore.instance
+                                .removeByName(row.name);
+                            // If the font just removed was the active
+                            // selection in this controller, clear it
+                            // so the CSS falls back to the default
+                            // stack instead of leaving a reference to
+                            // a font that no longer exists.
+                            if (controller.text == row.name) {
+                              controller.text = '';
+                            }
+                            setDialogState(() {});
+                            if (!mounted) return;
+                            setState(() {});
+                          },
+                        ),
+                      );
+                    }
+                    return ListTile(
+                      dense: true,
+                      title: Text(
+                        row.name,
+                        style: TextStyle(
+                          color: _y,
+                          fontSize: 14,
+                          fontWeight: isCurrent
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                      subtitle: Text(
+                        row.isBundled ? 'bundled' : 'custom',
+                        style: const TextStyle(color: _y, fontSize: 11),
+                      ),
+                      trailing: trailingChildren.isEmpty
+                          ? null
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: trailingChildren,
+                            ),
+                      onTap: () => Navigator.of(ctx).pop(row.name),
+                    );
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel', style: TextStyle(color: _y)),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -563,6 +620,36 @@ class _ReaderSettingsDialogState extends State<ReaderSettingsDialog> {
       });
       FocusScope.of(context).unfocus();
     }
+  }
+
+  /// Confirmation dialog for removing an imported font. Returns true
+  /// if the user confirmed the deletion.
+  Future<bool> _confirmRemoveFont(String name) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.black,
+        title: const Text('Remove font?',
+            style: TextStyle(color: _y, fontSize: 14)),
+        content: Text(
+          'Remove "$name" from imported fonts? The file will be deleted '
+          'from this device. Books that reference this font will fall '
+          'back to the default font until you import it again.',
+          style: const TextStyle(color: _y, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel', style: TextStyle(color: _y)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Remove', style: TextStyle(color: _y)),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 
   Widget _fontField(String label, TextEditingController controller) {
