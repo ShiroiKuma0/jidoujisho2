@@ -10,6 +10,7 @@ import 'package:multi_value_listenable_builder/multi_value_listenable_builder.da
 import 'package:subtitle/subtitle.dart';
 import 'package:yuuna/media.dart';
 import 'package:yuuna/models.dart';
+import 'package:yuuna/src/utils/components/folder_audio_picker.dart';
 import 'package:yuuna/utils.dart';
 
 /// A toolbar for playing audiobook MP3 files synced with SRT subtitles,
@@ -87,6 +88,19 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
     _srtPath = _box.get('srt_$key');
 
     if (_mp3Path != null && File(_mp3Path!).existsSync()) {
+      // If there's no persisted srt, or the one we remember no longer
+      // exists on disk (user moved files), try the same-basename
+      // companion in the mp3's directory. Persist the find so the
+      // auto-lookup cost is paid only once per chapter.
+      if (_srtPath == null || !File(_srtPath!).existsSync()) {
+        final companion = _findCompanionSrt(_mp3Path!);
+        if (companion != null) {
+          _srtPath = companion;
+          await _box.put('srt_$key', companion);
+        } else {
+          _srtPath = null;
+        }
+      }
       await _loadAudio();
       if (_srtPath != null && File(_srtPath!).existsSync()) {
         await _loadSubtitles();
@@ -106,7 +120,11 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
     super.dispose();
   }
 
-  /// Save current audio position for resuming later.
+  /// Save current audio position for resuming later. Per book: one
+  /// slot stores the position in whichever chapter is currently
+  /// loaded, because chapter navigation resets position to zero and
+  /// writes a fresh saved position, so there's only ever one
+  /// meaningful value to remember per book.
   void _saveAudioPosition() {
     if (_audioLoaded && _positionNotifier.value > Duration.zero) {
       String key = _safeKey(widget.bookKey);
@@ -117,13 +135,188 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
   String _safeKey(String k) =>
       k.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
 
+  /// Return the basename of a path without its extension, e.g.
+  /// `/storage/.../04 Nice trip.mp3` → `04 Nice trip`.
+  String _basenameWithoutExt(String p) {
+    final name = p.split(Platform.pathSeparator).last;
+    final dot = name.lastIndexOf('.');
+    return dot > 0 ? name.substring(0, dot) : name;
+  }
+
+  bool _isDigit(int code) => code >= 0x30 && code <= 0x39;
+
+  /// Natural-order comparison for filenames so
+  /// `"2 Foo"` < `"10 Foo"` as humans expect, instead of the default
+  /// lexicographic `"10 Foo"` < `"2 Foo"`. Runs of digits compare
+  /// numerically; everything else compares case-insensitively.
+  int _naturalCompare(String a, String b) {
+    int i = 0, j = 0;
+    while (i < a.length && j < b.length) {
+      final aDigit = _isDigit(a.codeUnitAt(i));
+      final bDigit = _isDigit(b.codeUnitAt(j));
+      if (aDigit && bDigit) {
+        final aStart = i, bStart = j;
+        while (i < a.length && _isDigit(a.codeUnitAt(i))) {
+          i++;
+        }
+        while (j < b.length && _isDigit(b.codeUnitAt(j))) {
+          j++;
+        }
+        final aNum = int.parse(a.substring(aStart, i));
+        final bNum = int.parse(b.substring(bStart, j));
+        if (aNum != bNum) return aNum.compareTo(bNum);
+      } else if (aDigit != bDigit) {
+        // Digits sort before letters when types differ.
+        return aDigit ? -1 : 1;
+      } else {
+        final cmp =
+            a[i].toLowerCase().compareTo(b[j].toLowerCase());
+        if (cmp != 0) return cmp;
+        i++;
+        j++;
+      }
+    }
+    return a.length.compareTo(b.length);
+  }
+
+  /// If an `.srt` file exists in the same directory as [mp3Path] with
+  /// the same basename (e.g. `04 Nice trip.mp3` → `04 Nice trip.srt`),
+  /// return its full path. Otherwise `null`. Used to auto-attach the
+  /// companion subtitle track the moment the user picks an audio file
+  /// or flips to a new chapter, since for this user's audiobooks the
+  /// mp3/srt pair is always co-located and same-named.
+  ///
+  /// Implemented as a directory scan with case-insensitive matching,
+  /// rather than a single-path `File(base.srt).existsSync()` check, so
+  /// `.SRT`/`.Srt`/`.srt` all match and any minor casing drift in the
+  /// basename itself is tolerated.
+  String? _findCompanionSrt(String mp3Path) {
+    final base = _basenameWithoutExt(mp3Path);
+    final dir = File(mp3Path).parent;
+    if (!dir.existsSync()) return null;
+    final baseLower = base.toLowerCase();
+    try {
+      final entries = dir.listSync(followLinks: false);
+      for (final entity in entries) {
+        if (entity is! File) continue;
+        final name = entity.path.split(Platform.pathSeparator).last;
+        if (!name.toLowerCase().endsWith('.srt')) continue;
+        if (_basenameWithoutExt(name).toLowerCase() == baseLower) {
+          return entity.path;
+        }
+      }
+    } catch (_) {
+      // Directory listing failed (permission, I/O). Treat as
+      // "no companion found" — caller handles null.
+    }
+    return null;
+  }
+
+  /// Return the list of audio files in the same directory as the
+  /// currently-loaded mp3, natural-sorted by filename. Used by
+  /// [_prevChapter] and [_nextChapter] to walk chapter order.
+  /// Extensions match [_pickMp3]'s picker filter.
+  List<String> _listChapterAudios() {
+    if (_mp3Path == null) return [];
+    final dir = File(_mp3Path!).parent;
+    if (!dir.existsSync()) return [];
+    const exts = {'.mp3', '.m4a', '.ogg', '.wav', '.flac', '.aac'};
+    final List<String> files = [];
+    try {
+      final entries = dir.listSync(followLinks: false);
+      for (final entity in entries) {
+        if (entity is! File) continue;
+        final lower = entity.path.toLowerCase();
+        if (exts.any(lower.endsWith)) files.add(entity.path);
+      }
+    } catch (_) {
+      // Directory listing failed — chapter nav becomes a no-op for
+      // this book until the cause clears.
+      return [];
+    }
+    files.sort((a, b) => _naturalCompare(
+          a.split(Platform.pathSeparator).last,
+          b.split(Platform.pathSeparator).last,
+        ));
+    return files;
+  }
+
+  /// Switch the player to [newPath]: stop current audio, attach the
+  /// companion srt if one exists, reload from position zero, persist.
+  /// Used by the explicit-pick flow and by prev/next chapter
+  /// navigation.
+  ///
+  /// Always starts the new file at zero and overwrites the book's
+  /// saved position accordingly. This matches the user's mental model
+  /// that picking or stepping to a file is a fresh start; the
+  /// resume-where-you-were behavior is owned exclusively by [_init],
+  /// which runs only when the book is first opened.
+  Future<void> _setAudio(String newPath) async {
+    final newSrt = _findCompanionSrt(newPath);
+
+    await _audioPlayer.stop();
+    _subtitles = [];
+    _currentSubtitle = null;
+    _autoPauseMemory = null;
+    _audioLoaded = false;
+
+    _mp3Path = newPath;
+    _srtPath = newSrt;
+
+    await _loadAudio(restorePosition: false);
+    if (_srtPath != null) {
+      await _loadSubtitles();
+    }
+    await _persist();
+    // Overwrite the book's saved position so a force-kill before the
+    // next dispose-time save doesn't reopen into the old offset
+    // against what is now a different audio file.
+    final key = _safeKey(widget.bookKey);
+    await _box.put('pos_$key', 0);
+    _collapsed = false;
+    if (mounted) setState(() {});
+  }
+
+  /// Index of [_mp3Path] within [list], matched by the final path
+  /// component. Direct full-path `indexOf` is brittle across
+  /// normalization differences between what `FilePicker` returns and
+  /// what `Directory.listSync` produces (trailing slashes, symlink
+  /// resolution, URI-encoded segments), but basenames under a single
+  /// directory have to be unique, so basename matching is both safe
+  /// and robust.
+  int _currentChapterIndex(List<String> list) {
+    if (_mp3Path == null) return -1;
+    final mine = _mp3Path!.split(Platform.pathSeparator).last;
+    return list.indexWhere(
+      (p) => p.split(Platform.pathSeparator).last == mine,
+    );
+  }
+
+  Future<void> _prevChapter() async {
+    if (_mp3Path == null) return;
+    final list = _listChapterAudios();
+    if (list.length < 2) return;
+    final idx = _currentChapterIndex(list);
+    if (idx <= 0) return; // already first, or current not found in listing
+    await _setAudio(list[idx - 1]);
+  }
+
+  Future<void> _nextChapter() async {
+    if (_mp3Path == null) return;
+    final list = _listChapterAudios();
+    if (list.length < 2) return;
+    final idx = _currentChapterIndex(list);
+    if (idx < 0 || idx >= list.length - 1) return;
+    await _setAudio(list[idx + 1]);
+  }
+
   Future<void> _persist() async {
     String key = _safeKey(widget.bookKey);
     if (_mp3Path != null) await _box.put('mp3_$key', _mp3Path!);
     if (_srtPath != null) await _box.put('srt_$key', _srtPath!);
   }
 
-  Future<void> _loadAudio() async {
+  Future<void> _loadAudio({bool restorePosition = true}) async {
     if (_mp3Path == null) return;
     try {
       await _audioPlayer.setFilePath(_mp3Path!);
@@ -143,11 +336,12 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
         _playingNotifier.value = s.playing;
       });
 
-      // Restore saved position
-      String key = _safeKey(widget.bookKey);
-      int? savedPosMs = _box.get('pos_$key');
-      if (savedPosMs != null && savedPosMs > 0) {
-        await _audioPlayer.seek(Duration(milliseconds: savedPosMs));
+      if (restorePosition) {
+        String key = _safeKey(widget.bookKey);
+        int? savedPosMs = _box.get('pos_$key');
+        if (savedPosMs != null && savedPosMs > 0) {
+          await _audioPlayer.seek(Duration(milliseconds: savedPosMs));
+        }
       }
 
       _audioLoaded = true;
@@ -274,16 +468,25 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
   }
 
   Future<void> _pickMp3() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['mp3', 'm4a', 'ogg', 'wav', 'flac', 'aac'],
+    // Custom folder browser rather than `file_picker.pickFiles` —
+    // on Huawei (and some other Android flavours) file_picker's
+    // SAF-backed implementation caches the selected file into
+    // app-private storage and returns the cache path, which makes
+    // chapter-nav and companion-srt lookup useless because the
+    // cache dir doesn't contain the user's other chapter files.
+    // Walking the real filesystem gives us a real path that the
+    // rest of the toolbar's logic can meaningfully use.
+    final initDir =
+        _mp3Path != null ? File(_mp3Path!).parent.path : null;
+    final path = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => FolderAudioPicker(initialDir: initDir),
+      ),
     );
-    if (result != null && result.files.single.path != null) {
-      _mp3Path = result.files.single.path!;
-      await _loadAudio();
-      await _persist();
-      _collapsed = false;
-      if (mounted) setState(() {});
+    if (path != null) {
+      // Explicit pick is always a fresh start; resume-where-you-were
+      // is owned exclusively by _init when reopening the book.
+      await _setAudio(path);
     }
   }
 
@@ -600,7 +803,9 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
               _buildPlayPause(),
               _btn(Icons.fast_forward, t.seek_control, _seekNext),
               _buildTime(),
+              _btn(Icons.skip_previous, 'Previous chapter', _prevChapter),
               Expanded(child: _buildSlider()),
+              _btn(Icons.skip_next, 'Next chapter', _nextChapter),
               _buildSecondaryToggle(),
               _btn(Icons.more_vert, t.show_options, _showMenu),
               const SizedBox(width: 4),
@@ -683,28 +888,65 @@ class ReaderAudioToolbarState extends State<ReaderAudioToolbar> {
         if (dur == Duration.zero) return const SizedBox.shrink();
         double val = pos.inMilliseconds.toDouble()
             .clamp(0, dur.inMilliseconds.toDouble());
-        return SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            trackHeight: 2,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-            overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-            activeTrackColor: const Color(0xFFFFFF00),
-            inactiveTrackColor: const Color(0xFFFFFF00).withOpacity(0.3),
-            thumbColor: const Color(0xFFFFFF00),
-            overlayColor: const Color(0xFFFFFF00).withOpacity(0.2),
-          ),
-          child: Slider(
-            value: val,
-            max: dur.inMilliseconds.toDouble(),
-            onChangeStart: (_) => _sliderBeingDragged = true,
-            onChanged: (v) =>
-                _positionNotifier.value = Duration(milliseconds: v.toInt()),
-            onChangeEnd: (v) {
-              _audioPlayer.seek(Duration(milliseconds: v.toInt()));
-              _sliderBeingDragged = false;
-              _autoPauseMemory = null;
-            },
-          ),
+        final String label =
+            _mp3Path != null ? _basenameWithoutExt(_mp3Path!) : '';
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            // Filename painted behind the slider at low opacity so the
+            // user can always see which chapter is playing without
+            // allocating extra vertical space for a label. IgnorePointer
+            // keeps the slider fully hit-testable over the top — the
+            // thumb sweeps across the label without stealing touches.
+            if (label.isNotEmpty)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Center(
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          color:
+                              const Color(0xFFFFFF00).withOpacity(0.35),
+                          fontSize: 22,
+                          height: 1.0,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 2,
+                thumbShape:
+                    const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape:
+                    const RoundSliderOverlayShape(overlayRadius: 10),
+                activeTrackColor: const Color(0xFFFFFF00),
+                inactiveTrackColor:
+                    const Color(0xFFFFFF00).withOpacity(0.3),
+                thumbColor: const Color(0xFFFFFF00),
+                overlayColor: const Color(0xFFFFFF00).withOpacity(0.2),
+              ),
+              child: Slider(
+                value: val,
+                max: dur.inMilliseconds.toDouble(),
+                onChangeStart: (_) => _sliderBeingDragged = true,
+                onChanged: (v) => _positionNotifier.value =
+                    Duration(milliseconds: v.toInt()),
+                onChangeEnd: (v) {
+                  _audioPlayer.seek(Duration(milliseconds: v.toInt()));
+                  _sliderBeingDragged = false;
+                  _autoPauseMemory = null;
+                },
+              ),
+            ),
+          ],
         );
       },
     );
