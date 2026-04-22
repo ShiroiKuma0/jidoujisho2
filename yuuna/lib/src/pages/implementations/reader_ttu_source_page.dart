@@ -1029,6 +1029,45 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     dialog, [role="dialog"] { background-color: #111 !important; color: #FFFF00 !important; }
     ::-webkit-scrollbar { background: #000 !important; }
     ::-webkit-scrollbar-thumb { background: #555 !important; }
+    /* TTU's settings page uses a tab-underline pattern for option
+       pickers like "View Mode": the selected tab gets
+       `after:w-full + after:bg-blue-700` (a full-width bar under
+       the label), while unselected tabs get `text-gray-500` on
+       the label. Our generic `[class*="text-gray"]` override above
+       forces both selected and unselected labels to the same
+       #FFFF00, flattening that distinction; and `bg-blue-700`
+       (#1d4ed8) as an underline on a black background is
+       technically visible but easy to miss. Restore both cues:
+       dim-yellow for the unselected label, and a high-contrast
+       white bar for the selected-tab underline. These rules come
+       after the generic overrides on purpose — equal specificity,
+       last-declared wins. */
+    .text-gray-500 { color: #999900 !important; }
+    .after\\:bg-blue-700::after { background-color: #FFFFFF !important; }
+    /* TTU option-picker buttons (Theme, View Mode, and other
+       single-choice pickers in settings) indicate selection by
+       swapping `bg-white` (unselected) for `bg-gray-700` + adding
+       `border-blue-300` + `text-white`. Our theme forced both
+       `bg-white` and `bg-gray-700` to #111 and all borders to
+       #555, flattening every visual cue. Restore the distinction by
+       inverting the selected state: the active button renders
+       yellow-on-black's negative — black-on-yellow — so it pops
+       against the row of unselected #111 buttons. Scoped to
+       `button.bg-gray-700` specifically so unrelated regions of the
+       UI that happen to use the `bg-gray-700` utility (e.g. hover
+       states on menu items, dialog chrome) aren't repainted. */
+    button.bg-gray-700 {
+      background-color: #FFFF00 !important;
+      color: #000 !important;
+      border-color: #FFFF00 !important;
+    }
+    /* Force icons and child text to black inside selected buttons.
+       Our generic `svg { fill: #FFFF00 !important }` and inherited
+       yellow text color would otherwise render yellow-on-yellow
+       (invisible) inside the inverted button. */
+    button.bg-gray-700 *,
+    button.bg-gray-700 .text-white { color: #000 !important; }
+    button.bg-gray-700 svg { fill: #000 !important; color: #000 !important; }
   ''';
 
   /// Inject the yellow-on-black UI theme CSS.
