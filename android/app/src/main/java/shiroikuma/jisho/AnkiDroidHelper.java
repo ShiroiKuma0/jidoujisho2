@@ -1,6 +1,6 @@
 // Derived from the AnkiDroid API Sample
 
-package app.arianneorpilla.yuuna;
+package shiroikuma.jisho;
 
 import android.app.Activity;
 import android.content.Context;

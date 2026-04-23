@@ -77,7 +77,7 @@ class AppBackupRestore {
       final timestamp =
           DateFormat('yyyy-MM-dd_HH-mm-ss').format(DateTime.now());
       final filename =
-          'shiroikumanojidoujishodainihan_backup_$timestamp.zip';
+          'shiroikumanojisho_backup_$timestamp.zip';
 
       final tmpDir = Directory('/storage/emulated/0/tmp');
       if (!tmpDir.existsSync()) tmpDir.createSync(recursive: true);

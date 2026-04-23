@@ -90,7 +90,7 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
 
   // Edge gesture state
   static const _volumeChannel =
-      MethodChannel('app.arianneorpilla.yuuna/volume');
+      MethodChannel('shiroikuma.jisho/volume');
   double _gestureVolume = 0.5;
   double _gestureMaxVolume = 15;
   double _gestureFontSize = 20;

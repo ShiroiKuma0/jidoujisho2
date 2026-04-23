@@ -1,6 +1,6 @@
 // Derived from the AnkiDroid API Sample
 
-package app.arianneorpilla.yuuna;
+package shiroikuma.jisho;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -34,7 +34,7 @@ import com.ryanheise.audioservice.AudioServiceActivity;
 import android.content.res.Configuration;
 
 public class MainActivity extends AudioServiceActivity {
-    private static final String ANKIDROID_CHANNEL = "app.arianneorpilla.yuuna/anki";
+    private static final String ANKIDROID_CHANNEL = "shiroikuma.jisho/anki";
     private static final int AD_PERM_REQUEST = 0;
 
     private Activity context;
@@ -235,7 +235,7 @@ public class MainActivity extends AudioServiceActivity {
                 }
             );
 
-        new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), "app.arianneorpilla.yuuna/volume")
+        new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), "shiroikuma.jisho/volume")
             .setMethodCallHandler(
                 (call, result) -> {
                     AudioManager audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);

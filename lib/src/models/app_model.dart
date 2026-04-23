@@ -2353,7 +2353,7 @@ class AppModel with ChangeNotifier {
       // External-files path computed from the package name. If the
       // directory doesn't exist, we'll try to create it below.
       candidates.add(
-          '/sdcard/Android/data/shiroikuma.jidoujishodainihan/files/search-perf.log');
+          '/sdcard/Android/data/shiroikuma.jisho/files/search-perf.log');
 
       for (final path in candidates) {
         try {
@@ -2829,7 +2829,7 @@ class AppModel with ChangeNotifier {
 
   /// Used to communicate back and forth with Dart and native code.
   static const MethodChannel methodChannel =
-      MethodChannel('app.arianneorpilla.yuuna/anki');
+      MethodChannel('shiroikuma.jisho/anki');
 
   /// Shows the AnkiDroid API message. Called when an Anki-related API get call
   /// fails.
@@ -4532,7 +4532,7 @@ class AppModel with ChangeNotifier {
         },
       ),
       config: const ag.AudioServiceConfig(
-        androidNotificationChannelId: 'app.arianneorpilla.yuuna.channel.audio',
+        androidNotificationChannelId: 'shiroikuma.jisho.channel.audio',
         androidNotificationChannelName: 'jidoujisho',
         androidNotificationIcon: 'drawable/splash',
         notificationColor: Colors.black,
