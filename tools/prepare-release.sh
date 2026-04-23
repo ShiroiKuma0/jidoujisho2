@@ -6,7 +6,7 @@
 # Example: tools/prepare-release.sh 2.10.4
 #
 # The script:
-#   - reads the current `version: X.Y.Z+N` line from yuuna/pubspec.yaml
+#   - reads the current `version: X.Y.Z+N` line from pubspec.yaml
 #   - sets it to `<new-version>+<N+1>`
 #   - updates the two "latest release" links in README.md to point at
 #     v<new-version>, and appends ` . <new-version>` to the history
@@ -33,7 +33,7 @@ fi
 # regardless of where it's invoked from.
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
-PUBSPEC="$REPO_ROOT/yuuna/pubspec.yaml"
+PUBSPEC="$REPO_ROOT/pubspec.yaml"
 README="$REPO_ROOT/README.md"
 
 [[ -f "$PUBSPEC" ]] || die "pubspec not found: $PUBSPEC"
