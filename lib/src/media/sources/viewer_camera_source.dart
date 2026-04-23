@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
 
 /// A media source that allows the user to take images or pick media from their
 /// library and use optical character recognition features.

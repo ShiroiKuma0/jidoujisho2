@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:material_floating_search_bar/material_floating_search_bar.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// A template for a single media type's tab body content in the main menu.
 /// Has a floating search bar which can be customised depending on the

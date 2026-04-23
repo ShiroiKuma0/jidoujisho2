@@ -1,9 +1,9 @@
 import 'package:isar/isar.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/language.dart';
-import 'package:yuuna/models.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/language.dart';
+import 'package:shiroikumanojisho/models.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 part 'anki_mapping.g.dart';
 

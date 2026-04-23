@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:spaces/spaces.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// The content of the dialog used for managing Reader settings.
 class TtuSettingsDialogPage extends BasePage {

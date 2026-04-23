@@ -2,8 +2,8 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:spaces/spaces.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// The content of the dialog used for managing and viewing items in the Stash.
 class OpenStashDialogPage extends BasePage {

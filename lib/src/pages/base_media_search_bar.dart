@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:material_floating_search_bar/material_floating_search_bar.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// The search bar used for the home page when a certain source is enabled.
 abstract class BaseMediaSearchBar extends BaseTabPage {

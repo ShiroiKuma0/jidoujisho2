@@ -11,11 +11,11 @@ import 'package:hive/hive.dart';
 import 'package:local_assets_server/local_assets_server.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:spaces/spaces.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/models.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/models.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// The media page used for the [ReaderTtuSource].
 class ReaderTtuSourcePage extends BaseSourcePage {
@@ -127,9 +127,9 @@ class _ReaderTtuSourcePageState extends BaseSourcePageState<ReaderTtuSourcePage>
     );
   }
 
-  /// Gate yuuna's exit-confirmation dialog on the reader-source
+  /// Gate the app's exit-confirmation dialog on the reader-source
   /// preference. Universal across all books — the toggle lives in
-  /// yuuna's TTU settings dialog (cog icon in the reader's bottom
+  /// the app's TTU settings dialog (cog icon in the reader's bottom
   /// bar), not in TTU's own per-book settings.
   @override
   Future<bool> shouldConfirmExit() async {

@@ -8,9 +8,9 @@ import 'package:multi_value_listenable_builder/multi_value_listenable_builder.da
 // ignore: depend_on_referenced_packages
 import 'package:record_mp3_plus/record_mp3_plus.dart';
 import 'package:spaces/spaces.dart';
-import 'package:yuuna/i18n/strings.g.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/src/utils/misc/jidoujisho_time_format.dart';
+import 'package:shiroikumanojisho/i18n/strings.g.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/src/utils/misc/jidoujisho_time_format.dart';
 
 /// The content of the dialog used for selecting segmented units of a source
 /// text.

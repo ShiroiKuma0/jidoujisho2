@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:network_to_file_image/network_to_file_image.dart';
-import 'package:yuuna/media.dart';
+import 'package:shiroikumanojisho/media.dart';
 
 /// Used for entities that can generate a single image from a [MediaItem] seed.
 mixin ImageGeneratorMixin {

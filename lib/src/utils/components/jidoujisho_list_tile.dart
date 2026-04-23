@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:spaces/spaces.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// Used for various dialogs, such as the dictionary, profiles and enhancements
 /// menus. Used for listing, selecting and reordering items.

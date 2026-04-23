@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/models.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/models.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// An enhancement used to save the Tags field's last value.
 class SaveTagsEnhancement extends Enhancement {

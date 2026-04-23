@@ -1,5 +1,5 @@
 import 'package:collection/collection.dart';
-import 'package:yuuna/dictionary.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
 
 /// An in-memory view model that groups `(term, reading)` together with
 /// its dictionary entries, pitch-accent rows, frequency rows, and

@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// Used for handling text selection.
 typedef OffsetValue = void Function(int start, int end);

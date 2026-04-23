@@ -6,13 +6,13 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/language.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/language.dart';
+import 'package:shiroikumanojisho/models.dart';
 import 'package:html/parser.dart' as parser;
 import 'package:html/dom.dart' as dom;
 import 'package:http/http.dart' as http;
-import 'package:yuuna/pages.dart';
+import 'package:shiroikumanojisho/pages.dart';
 
 /// An entity used to neatly return and organise results fetched from Forvo.
 class ForvoResult {

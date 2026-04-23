@@ -2,10 +2,10 @@ import 'package:change_notifier_builder/change_notifier_builder.dart';
 import 'package:flutter/material.dart';
 import 'package:reorderables/reorderables.dart';
 import 'package:spaces/spaces.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/models.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/models.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/utils.dart';
 import 'package:collection/collection.dart';
 
 /// The content of the dialog used for managing profiles.

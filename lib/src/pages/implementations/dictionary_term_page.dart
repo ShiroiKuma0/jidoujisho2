@@ -5,12 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sliver_tools/sliver_tools.dart';
 import 'package:spaces/spaces.dart';
 import 'package:visibility_detector/visibility_detector.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/src/models/app_model.dart';
-import 'package:yuuna/src/models/creator_model.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/src/models/app_model.dart';
+import 'package:shiroikumanojisho/src/models/creator_model.dart';
+import 'package:shiroikumanojisho/utils.dart';
 import 'package:collection/collection.dart';
 
 /// Returns the widget for a list of [DictionaryEntry] making up a term.

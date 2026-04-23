@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:spaces/spaces.dart';
-import 'package:yuuna/models.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/models.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// A page template which assumes use of [BasePageState] by which all pages
 /// in the app will conveniently share base functionality.

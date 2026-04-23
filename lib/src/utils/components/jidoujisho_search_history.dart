@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:spaces/spaces.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 /// Used in a floating search bar body for showing search history items for
 /// a certain collection named [uniqueKey].

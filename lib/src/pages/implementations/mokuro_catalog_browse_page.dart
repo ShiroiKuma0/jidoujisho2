@@ -6,10 +6,10 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:spaces/spaces.dart';
 import 'package:wakelock/wakelock.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// The page for browsing a catalog until a volume is opened.
 class MokuroCatalogBrowsePage extends BaseSourcePage {

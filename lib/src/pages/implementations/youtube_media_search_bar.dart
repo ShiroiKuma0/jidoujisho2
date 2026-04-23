@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
 
 /// The search bar used for the [YoutubeMediaSearchBar].
 class YoutubeMediaSearchBar extends BaseMediaSearchBar {

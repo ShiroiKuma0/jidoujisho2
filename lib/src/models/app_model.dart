@@ -31,13 +31,13 @@ import 'package:remove_emoji/remove_emoji.dart';
 import 'package:restart_app/restart_app.dart';
 import 'package:subtitle/subtitle.dart';
 import 'package:wakelock/wakelock.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/language.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/models.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/language.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/models.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 import 'search_worker.dart';
 

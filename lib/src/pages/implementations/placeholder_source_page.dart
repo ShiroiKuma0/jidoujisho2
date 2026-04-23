@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:yuuna/src/pages/base_source_page.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/src/pages/base_source_page.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// The media page used for unimplemented sources.
 class PlaceholderSourcePage extends BaseSourcePage {

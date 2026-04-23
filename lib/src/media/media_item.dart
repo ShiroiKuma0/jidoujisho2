@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:isar/isar.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/models.dart';
 part 'media_item.g.dart';
 
 /// An item representable in media history from which a media source may

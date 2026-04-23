@@ -1,5 +1,5 @@
 import 'package:isar/isar.dart';
-import 'package:yuuna/dictionary.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
 
 /// Plain-data structures returned by language-specific search workers
 /// across the `compute()` isolate boundary.

@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:yuuna/media.dart';
+import 'package:shiroikumanojisho/media.dart';
 
 /// A type converter for [MediaItem].
 class MediaItemConverter {

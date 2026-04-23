@@ -1,11 +1,11 @@
 import 'package:expandable/expandable.dart';
 import 'package:flutter/material.dart';
 import 'package:spaces/spaces.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/i18n/strings.g.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/i18n/strings.g.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
 
 /// Returns the main body of the [HomeDictionaryPage] before the search bar
 /// is opened.

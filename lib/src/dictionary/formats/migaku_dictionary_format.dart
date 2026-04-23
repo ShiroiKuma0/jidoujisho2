@@ -7,8 +7,8 @@ import 'package:flutter_archive/flutter_archive.dart';
 import 'package:isar/isar.dart';
 import 'package:path/path.dart' as path;
 
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/i18n/strings.g.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/i18n/strings.g.dart';
 
 /// A dictionary format for the JSON-based Migaku Dictionary archives.
 class MigakuFormat extends DictionaryFormat {

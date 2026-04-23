@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:spaces/spaces.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
 
 /// The content of the dialog used for picking a source for a media type.
 class MediaSourcePickerDialogPage extends BasePage {

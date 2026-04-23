@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
-project(yuuna LANGUAGES CXX)
+project(shiroikumanojisho LANGUAGES CXX)
 
-set(BINARY_NAME "yuuna")
+set(BINARY_NAME "shiroikumanojisho")
 
 cmake_policy(SET CMP0063 NEW)
 

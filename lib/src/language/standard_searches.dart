@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:collection/collection.dart';
 import 'package:isar/isar.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/models.dart';
-import 'package:yuuna/src/language/language_utils.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/models.dart';
+import 'package:shiroikumanojisho/src/language/language_utils.dart';
 
 import '../models/in_memory_term_index.dart';
 import '../models/search_worker.dart';

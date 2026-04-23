@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:isar/isar.dart';
 import 'package:path/path.dart' as path;
 
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/i18n/strings.g.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/i18n/strings.g.dart';
 
 /// A dictionary format for files following the ABBYY Lingvo or DSL format
 /// compatible with GoldenDict.

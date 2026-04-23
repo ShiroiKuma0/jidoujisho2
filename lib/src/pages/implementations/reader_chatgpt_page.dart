@@ -12,10 +12,10 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:progress_indicators/progress_indicators.dart';
 import 'package:remove_emoji/remove_emoji.dart';
 import 'package:spaces/spaces.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// A page for [ReaderChatgptSource] which allows the user to interact with the
 /// ChatGPT service.

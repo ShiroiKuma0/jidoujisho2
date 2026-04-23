@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/models.dart';
-import 'package:yuuna/dictionary.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/models.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
 
 /// An enhancement that is useful for copying the headword term.
 class CopyToClipboardAction extends QuickAction {

@@ -8,10 +8,10 @@ import 'package:hive/hive.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:multi_value_listenable_builder/multi_value_listenable_builder.dart';
 import 'package:subtitle/subtitle.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/models.dart';
-import 'package:yuuna/src/utils/components/folder_audio_picker.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/models.dart';
+import 'package:shiroikumanojisho/src/utils/components/folder_audio_picker.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// A toolbar for playing audiobook MP3 files synced with SRT subtitles,
 /// displayed at the bottom of the reader page.

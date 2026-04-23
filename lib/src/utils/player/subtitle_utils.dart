@@ -4,7 +4,7 @@ import 'package:flutter_ffmpeg/flutter_ffmpeg.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:subtitle/subtitle.dart';
 import 'package:path/path.dart' as path;
-import 'package:yuuna/language.dart';
+import 'package:shiroikumanojisho/language.dart';
 
 /// Differentiates different types of [SubtitleItem].
 enum SubtitleItemType {

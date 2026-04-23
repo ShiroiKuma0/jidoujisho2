@@ -10,8 +10,8 @@ import 'package:isar/isar.dart';
 import 'package:list_counter/list_counter.dart';
 import 'package:path/path.dart' as path;
 import 'package:recase/recase.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// A dictionary format for archives following the latest Yomichan bank
 /// schema. Example dictionaries for this format may be downloaded from the

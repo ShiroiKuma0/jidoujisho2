@@ -7,11 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:network_to_file_image/network_to_file_image.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/models.dart';
 import 'package:http/http.dart' as http;
-import 'package:yuuna/src/creator/enhancements/jp_conjugations.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/src/creator/enhancements/jp_conjugations.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// An entity used to neatly return and organise results fetched from
 /// ImmersionKit.

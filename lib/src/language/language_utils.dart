@@ -1,6 +1,6 @@
 import 'package:kana_kit/kana_kit.dart';
 import 'package:ruby_text/ruby_text.dart';
-import 'package:yuuna/dictionary.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
 
 /// Extra methods for [RegExp].
 

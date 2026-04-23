@@ -4,9 +4,9 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:isar/isar.dart';
 import 'package:lemmatizerx/lemmatizerx.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/language.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/language.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 /// Language implementation of the English language.
 class EnglishLanguage extends Language {

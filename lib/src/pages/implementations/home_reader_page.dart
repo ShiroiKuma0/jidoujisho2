@@ -1,5 +1,5 @@
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
 
 /// The body content for the Reader tab in the main menu.
 class HomeReaderPage extends BaseTabPage {

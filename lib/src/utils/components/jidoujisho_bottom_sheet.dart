@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 /// An option to show in a bottom sheet.
 class JidoujishoBottomSheetOption {

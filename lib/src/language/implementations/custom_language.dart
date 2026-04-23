@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/language.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/language.dart';
 
 /// A user-configurable language implementation. Search behaviour follows
 /// the standard latin-script algorithm — see [runStandardLatinSearch].

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:spaces/spaces.dart';
 import 'package:transparent_image/transparent_image.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
 
 /// A default page for a [ReaderMediaSource]'s tab body content when selected
 /// as a source in the main menu.

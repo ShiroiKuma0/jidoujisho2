@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
-import 'package:yuuna/dictionary.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
 
 /// Base entity which allows messaging updates from other isolates.
 class IsolateParams {

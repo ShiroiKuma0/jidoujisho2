@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:spaces/spaces.dart';
 import 'package:subtitle/subtitle.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/utils.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/utils.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 /// The page used for the Card Creator to modify a note before export. Relies
 /// on the [CreatorModel].

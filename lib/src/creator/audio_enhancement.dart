@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 /// An entity for enhancements that specificallly generate audio.
 abstract class AudioEnhancement extends Enhancement {

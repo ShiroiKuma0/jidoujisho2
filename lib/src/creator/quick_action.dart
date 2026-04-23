@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 /// An entity that executes an action when selected on the upper-right of a
 /// dictionary entry widget. An action is initialised at runtime in the

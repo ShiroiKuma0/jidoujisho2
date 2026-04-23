@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:spaces/spaces.dart';
 import 'package:transparent_image/transparent_image.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/src/pages/implementations/media_item_edit_dialog_page.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/src/pages/implementations/media_item_edit_dialog_page.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// The content of the dialog used upon long-pressing a [MediaItem].
 class MediaItemDialogPage extends BasePage {

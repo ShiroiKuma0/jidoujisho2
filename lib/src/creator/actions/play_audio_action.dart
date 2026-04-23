@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/models.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/models.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// An enhancement used effectively as a shortcut for previewing audio.
 class PlayAudioAction extends QuickAction {

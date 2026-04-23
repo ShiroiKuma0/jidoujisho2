@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:spaces/spaces.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// Used by the Reader WebSocket Source.
 class WebsocketDialogPage extends BasePage {

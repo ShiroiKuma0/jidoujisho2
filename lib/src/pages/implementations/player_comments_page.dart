@@ -9,10 +9,10 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:remove_emoji/remove_emoji.dart';
 import 'package:spaces/spaces.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// A page for [ReaderWebsocketSource] which shows lyrics of current playing
 /// media.

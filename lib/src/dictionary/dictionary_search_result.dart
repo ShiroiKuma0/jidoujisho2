@@ -1,4 +1,4 @@
-import 'package:yuuna/dictionary.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
 
 /// An in-memory representation of a single dictionary search result,
 /// produced by `AppModel.searchDictionary` after it post-processes a

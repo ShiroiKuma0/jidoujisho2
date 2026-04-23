@@ -6,8 +6,8 @@ import 'dart:ui';
 
 import 'package:flutter/services.dart';
 import 'package:isar/isar.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 import 'in_memory_term_index.dart';
 
@@ -21,7 +21,7 @@ import 'in_memory_term_index.dart';
 /// are independent between concurrent flows, so two interleaved
 /// requests for different languages don't step on each other the way
 /// a module-level variable would.
-const Object inMemoryTermIndexZoneKey = #yuuna_in_memory_term_index;
+const Object inMemoryTermIndexZoneKey = #shiroikumanojisho_in_memory_term_index;
 
 /// Persistent search-worker isolate.
 ///
@@ -149,10 +149,10 @@ void searchWorkerEntry(SearchWorkerInit init) {
   // Without these, any plugin-mediated call from the worker — or
   // anything transitively triggered by loading libraries that touch
   // plugins at init — silently throws. Isar itself is FFI-only and
-  // doesn't need either, but imports that reach into the yuuna
-  // codebase may pull in code that does, and matching compute()'s
-  // setup exactly removes a whole class of "why is this broken"
-  // failure modes.
+  // doesn't need either, but imports that reach into the
+  // shiroikumanojisho codebase may pull in code that does, and
+  // matching compute()'s setup exactly removes a whole class of
+  // "why is this broken" failure modes.
   DartPluginRegistrant.ensureInitialized();
   BackgroundIsolateBinaryMessenger.ensureInitialized(
       init.rootIsolateToken);

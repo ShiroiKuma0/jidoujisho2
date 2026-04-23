@@ -6,8 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:network_to_file_image/network_to_file_image.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 /// An enhancement that can be used to select a picture with the
 class PickImageEnhancement extends ImageEnhancement {

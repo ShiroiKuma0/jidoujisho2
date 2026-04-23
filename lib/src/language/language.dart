@@ -3,10 +3,10 @@ import 'dart:math';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/language.dart';
-import 'package:yuuna/models.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/language.dart';
+import 'package:shiroikumanojisho/models.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// Defines common characteristics required for tuning locale and text
 /// segmentation behaviour for different languages. Override the variables

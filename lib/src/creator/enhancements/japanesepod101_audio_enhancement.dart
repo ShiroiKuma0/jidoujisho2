@@ -5,8 +5,8 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kana_kit/kana_kit.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 /// An enhancement for fetching audio from JapanesePod101.
 class JapanesePod101AudioEnhancement extends AudioEnhancement {

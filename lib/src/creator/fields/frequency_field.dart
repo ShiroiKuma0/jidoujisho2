@@ -2,9 +2,9 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 /// Returns the frequency of a [DictionaryHeading] (uses harmonic mean for
 /// multiple entries, idea taken from @MarvNC).

@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/src/models/app_model.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/src/models/app_model.dart';
 
 /// A collection of values that can be used to mutate the current context of
 /// the creator.

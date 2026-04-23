@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/models.dart';
-import 'package:yuuna/dictionary.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/models.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
 
 /// An enhancement that calls the native share API for sharing word details.
 class ShareAction extends QuickAction {

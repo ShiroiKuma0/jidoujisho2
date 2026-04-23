@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:spaces/spaces.dart';
 import 'package:transparent_image/transparent_image.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/src/media/media_item.dart';
-import 'package:yuuna/src/media/media_source.dart';
-import 'package:yuuna/src/media/media_type.dart';
-import 'package:yuuna/src/media/sources/reader_browser_source.dart';
-import 'package:yuuna/src/media/types/reader_media_type.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/src/media/media_item.dart';
+import 'package:shiroikumanojisho/src/media/media_source.dart';
+import 'package:shiroikumanojisho/src/media/media_type.dart';
+import 'package:shiroikumanojisho/src/media/sources/reader_browser_source.dart';
+import 'package:shiroikumanojisho/src/media/types/reader_media_type.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// Provider for getting the best favicon.
 final faviconProvider =

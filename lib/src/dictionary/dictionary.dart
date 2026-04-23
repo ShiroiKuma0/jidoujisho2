@@ -1,6 +1,6 @@
 import 'package:isar/isar.dart';
 import 'package:path/path.dart' as path;
-import 'package:yuuna/language.dart';
+import 'package:shiroikumanojisho/language.dart';
 
 part 'dictionary.g.dart';
 

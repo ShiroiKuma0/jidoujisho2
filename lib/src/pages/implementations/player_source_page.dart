@@ -22,11 +22,11 @@ import 'package:spaces/spaces.dart';
 import 'package:subtitle/subtitle.dart';
 import 'package:wakelock/wakelock.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/src/pages/implementations/player_comments_page.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/src/pages/implementations/player_comments_page.dart';
+import 'package:shiroikumanojisho/utils.dart';
 import 'package:path/path.dart' as path;
 
 /// The media page used for the [PlayerMediaSource].

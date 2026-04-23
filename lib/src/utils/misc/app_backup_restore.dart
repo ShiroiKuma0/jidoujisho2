@@ -7,7 +7,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as path;
 import 'package:share_plus/share_plus.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 /// Handles full app data backup and restore.
 class AppBackupRestore {

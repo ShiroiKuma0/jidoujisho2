@@ -1,5 +1,5 @@
 import 'package:flutter_vlc_player/flutter_vlc_player.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// A class that bundles together necessary entities for using the player.
 class PlayerPayload {

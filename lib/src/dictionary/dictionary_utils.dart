@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 /// FNV-1a 64-bit hash algorithm optimised for Dart Strings.
 ///

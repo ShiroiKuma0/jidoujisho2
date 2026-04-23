@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:progress_indicators/progress_indicators.dart';
 import 'package:spaces/spaces.dart';
-import 'package:yuuna/i18n/strings.g.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
+import 'package:shiroikumanojisho/i18n/strings.g.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
 
 /// Used to indicate which captions are included on metadata
 /// for a YouTube video.

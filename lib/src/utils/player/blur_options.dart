@@ -1,7 +1,7 @@
 import 'package:blurrycontainer/blurrycontainer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 /// Settings that are persisted for the blur widget used in the player.
 class BlurOptions {

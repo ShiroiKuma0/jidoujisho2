@@ -7,10 +7,10 @@ import 'package:hive/hive.dart';
 import 'package:network_to_file_image/network_to_file_image.dart';
 import 'package:subtitle/subtitle.dart';
 import 'package:transparent_image/transparent_image.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/models.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/models.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/utils.dart';
 import 'package:path/path.dart' as path;
 
 /// A source for a [MediaType] that will appear on the list of sources when

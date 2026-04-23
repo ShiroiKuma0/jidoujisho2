@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// The page shown to view a result in dictionary history.
 class RecursiveDictionaryHistoryPage extends BasePage {

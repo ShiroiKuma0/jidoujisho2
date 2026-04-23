@@ -1,5 +1,5 @@
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
 
 /// A source for the [ReaderMediaType], which handles primarily text-based
 /// media.

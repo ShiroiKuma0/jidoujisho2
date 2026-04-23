@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:multi_value_listenable_builder/multi_value_listenable_builder.dart';
 import 'package:spaces/spaces.dart';
-import 'package:yuuna/i18n/strings.g.dart';
-import 'package:yuuna/pages.dart';
+import 'package:shiroikumanojisho/i18n/strings.g.dart';
+import 'package:shiroikumanojisho/pages.dart';
 
 /// The content of the dialog used for showing dictionary import progress when
 /// importing a dictionary from the dictionary menu. See the

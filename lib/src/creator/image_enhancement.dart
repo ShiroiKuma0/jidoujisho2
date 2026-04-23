@@ -1,6 +1,6 @@
 import 'package:network_to_file_image/network_to_file_image.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 /// An entity for enhancements that specificallly generate images.
 abstract class ImageEnhancement extends Enhancement {

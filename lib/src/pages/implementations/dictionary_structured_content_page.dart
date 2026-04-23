@@ -8,9 +8,9 @@ import 'package:flutter_html_table/flutter_html_table.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:path/path.dart' as path;
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/models.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/models.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// Provides and caches the processed HTML of a [DictionaryEntry] to improve
 /// performance.

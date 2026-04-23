@@ -5,10 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:progress_indicators/progress_indicators.dart';
 import 'package:spaces/spaces.dart';
 import 'package:transparent_image/transparent_image.dart';
-import 'package:yuuna/creator.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/i18n/strings.g.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/creator.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/i18n/strings.g.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 /// Returns audio information from context.
 class ImageField extends ImageExportField {

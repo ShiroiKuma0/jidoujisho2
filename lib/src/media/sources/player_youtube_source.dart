@@ -7,11 +7,11 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:material_floating_search_bar/material_floating_search_bar.dart';
 import 'package:subtitle/subtitle.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
-import 'package:yuuna/language.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/models.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/language.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/models.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// Used to not block the UI isolate.
 Future<ClosedCaptionManifest> computeCaptionsManifest(String videoId) async {

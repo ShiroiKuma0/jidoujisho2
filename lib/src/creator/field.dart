@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 /// An entity that represents a broad characteristic of an item being
 /// exported that is distinguishable enough to deserve its own core

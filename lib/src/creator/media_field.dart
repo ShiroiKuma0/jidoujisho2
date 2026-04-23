@@ -1,4 +1,4 @@
-import 'package:yuuna/creator.dart';
+import 'package:shiroikumanojisho/creator.dart';
 
 /// A special kind of field that has a special widget at the top of the creator.
 /// For example, the audio field has a media player that can be controlled

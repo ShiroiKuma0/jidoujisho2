@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:yuuna/media.dart';
-import 'package:yuuna/pages.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/media.dart';
+import 'package:shiroikumanojisho/pages.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// A page for [ReaderMokuroSource]'s tab body content when selected as a source
 /// in the main menu.

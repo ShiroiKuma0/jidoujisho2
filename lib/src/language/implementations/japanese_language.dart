@@ -7,9 +7,9 @@ import 'package:kana_kit/kana_kit.dart';
 import 'package:mecab_dart/mecab_dart.dart';
 import 'package:ruby_text/ruby_text.dart';
 import 'package:ve_dart/ve_dart.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/language.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/language.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 /// Language implementation of the Japanese language.
 class JapaneseLanguage extends Language {

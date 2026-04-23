@@ -6,8 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:isar/isar.dart';
 import 'package:path/path.dart' as path;
 import 'package:share_plus/share_plus.dart';
-import 'package:yuuna/dictionary.dart';
-import 'package:yuuna/models.dart';
+import 'package:shiroikumanojisho/dictionary.dart';
+import 'package:shiroikumanojisho/models.dart';
 
 import 'dictionary_resource_cleanup.dart';
 

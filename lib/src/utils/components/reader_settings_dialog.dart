@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:yuuna/utils.dart';
+import 'package:shiroikumanojisho/utils.dart';
 
 /// Per-book reader appearance settings.
 class ReaderAppearanceSettings {
