@@ -1,7 +1,7 @@
 <p align="center">
   <img src="https://github.com/ShiroiKuma0/jidoujisho2/blob/main/assets/meta/icon.png" width="250" height="250">
 </p>
-<h3 align="center">白い熊の自動辞書第二版</h3>
+<h3 align="center">白い熊の辞書</h3>
 <p align="center">A full-featured immersion language learning suite for mobile.</p>
 <p align="center">
   <a href="https://github.com/ShiroiKuma0/jidoujisho2/releases/tag/v2.10.3">
