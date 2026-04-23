@@ -1,3 +1,7 @@
+> **This project has moved.** Development continues at [**ShiroiKuma0/shiroikumanojisho**](https://github.com/ShiroiKuma0/shiroikumanojisho) under the name **白い熊の辞書** (*Shiroikuma no Jisho*). This repository is archived and preserved for historical release tags referenced from the linked project's release history. It will not receive further updates.
+
+---
+
 <p align="center">
   <img src="https://github.com/ShiroiKuma0/jidoujisho2/blob/main/assets/meta/icon.png" width="250" height="250">
 </p>
